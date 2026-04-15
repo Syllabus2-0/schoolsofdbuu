@@ -1,0 +1,254 @@
+import { useAuth } from '../context/AuthContext';
+import {
+  getSchoolById,
+  getDepartmentById,
+  getFacultyAssignments,
+  getSubjectById,
+  getProgramById,
+  getPOPSODocuments,
+  type User,
+} from '../data/universityData';
+import {
+  User as UserIcon,
+  Mail,
+  Building,
+  Briefcase,
+  Calendar,
+  BookOpen,
+  Shield,
+  GraduationCap,
+  FileText,
+} from 'lucide-react';
+
+const roleLabels: Record<string, string> = {
+  SuperAdmin: 'Super Administrator',
+  Dean: 'Dean',
+  HOD: 'Head of Department',
+  Faculty: 'Faculty Member',
+};
+
+const roleColors: Record<string, { bg: string; text: string; border: string }> = {
+  SuperAdmin: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
+  Dean: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
+  HOD: { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
+  Faculty: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+};
+
+export default function Profile() {
+  const { currentUser } = useAuth();
+
+  if (!currentUser) return null;
+
+  const school = currentUser.schoolId ? getSchoolById(currentUser.schoolId) : null;
+  const dept = currentUser.departmentId ? getDepartmentById(currentUser.departmentId) : null;
+  const colors = roleColors[currentUser.role] || roleColors.Faculty;
+
+  return (
+    <div className="p-8">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">My Profile</h1>
+          <p className="text-slate-600">View your account details and assignments</p>
+        </div>
+
+        {/* Profile Card */}
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden mb-8">
+          {/* Banner */}
+          <div className="h-32 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
+
+          <div className="px-8 pb-8">
+            {/* Avatar + Name */}
+            <div className="flex items-end gap-6 -mt-12 mb-6">
+              <div className="w-24 h-24 rounded-full bg-white border-4 border-white shadow-lg flex items-center justify-center bg-gradient-to-br from-indigo-100 to-purple-100">
+                <span className="text-2xl font-bold text-indigo-700">
+                  {currentUser.name.split(' ').map(n => n[0]).join('')}
+                </span>
+              </div>
+              <div className="pb-1">
+                <h2 className="text-2xl font-bold text-slate-900">{currentUser.name}</h2>
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mt-1 ${colors.bg} ${colors.text} border ${colors.border}`}>
+                  <Shield className="w-3 h-3" />
+                  {roleLabels[currentUser.role]}
+                </span>
+              </div>
+            </div>
+
+            {/* Details Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <InfoRow icon={<Mail className="w-4 h-4 text-slate-500" />} label="Email" value={currentUser.email} />
+              <InfoRow icon={<UserIcon className="w-4 h-4 text-slate-500" />} label="User ID" value={currentUser.id} />
+              {school && (
+                <InfoRow icon={<Building className="w-4 h-4 text-slate-500" />} label="School" value={`${school.code} — ${school.name}`} />
+              )}
+              {dept && (
+                <InfoRow icon={<Briefcase className="w-4 h-4 text-slate-500" />} label="Department" value={dept.name} />
+              )}
+              {currentUser.assignedYear && (
+                <InfoRow icon={<Calendar className="w-4 h-4 text-slate-500" />} label="Assigned Year" value={`Year ${currentUser.assignedYear}`} />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Role-specific sections */}
+        {currentUser.role === 'SuperAdmin' && <AdminProfileSection />}
+        {currentUser.role === 'Dean' && school && <DeanProfileSection schoolId={school.id} />}
+        {currentUser.role === 'HOD' && <HODProfileSection user={currentUser} />}
+        {currentUser.role === 'Faculty' && <FacultyProfileSection user={currentUser} />}
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="mt-0.5">{icon}</div>
+      <div>
+        <p className="text-xs font-medium text-slate-500 uppercase">{label}</p>
+        <p className="text-sm font-medium text-slate-900">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function AdminProfileSection() {
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 p-6">
+      <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
+        <Shield className="w-5 h-5 text-purple-600" />
+        Administrator Privileges
+      </h3>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        {[
+          'Manage all schools',
+          'Assign/remove deans',
+          'View full university tree',
+          'Manage all users',
+          'Access all analytics',
+          'System configuration',
+        ].map(priv => (
+          <div key={priv} className="flex items-center gap-2 text-sm text-slate-700 bg-purple-50 px-3 py-2 rounded-lg">
+            <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+            {priv}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DeanProfileSection({ schoolId }: { schoolId: string }) {
+  const school = getSchoolById(schoolId);
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 p-6">
+      <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
+        <GraduationCap className="w-5 h-5 text-blue-600" />
+        Dean Responsibilities
+      </h3>
+      <p className="text-sm text-slate-600 mb-4">
+        You manage <strong>{school?.name}</strong> ({school?.code})
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        {[
+          'Create departments',
+          'Assign HODs (year-wise)',
+          'Review & approve syllabi',
+          'School-level analytics',
+        ].map(resp => (
+          <div key={resp} className="flex items-center gap-2 text-sm text-slate-700 bg-blue-50 px-3 py-2 rounded-lg">
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+            {resp}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function HODProfileSection({ user }: { user: User }) {
+  const dept = user.departmentId ? getDepartmentById(user.departmentId) : null;
+  const popso = user.departmentId && user.assignedYear
+    ? getPOPSODocuments(user.departmentId, user.assignedYear)
+    : [];
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg border border-slate-200 p-6">
+        <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
+          <Briefcase className="w-5 h-5 text-green-600" />
+          HOD Responsibilities
+        </h3>
+        <p className="text-sm text-slate-600 mb-4">
+          You manage <strong>{dept?.name}</strong> — Year {user.assignedYear}
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            'Assign teachers to subjects',
+            'Upload PO & PSO documents',
+            'Review syllabus submissions',
+            'Department analytics',
+          ].map(resp => (
+            <div key={resp} className="flex items-center gap-2 text-sm text-slate-700 bg-green-50 px-3 py-2 rounded-lg">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+              {resp}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {popso.length > 0 && (
+        <div className="bg-white rounded-lg border border-slate-200 p-6">
+          <h3 className="text-sm font-semibold text-slate-900 mb-3">Uploaded Documents</h3>
+          <div className="space-y-2">
+            {popso.map(doc => (
+              <div key={doc.id} className="flex items-center gap-3 text-sm bg-slate-50 px-3 py-2 rounded-lg">
+                <FileText className="w-4 h-4 text-green-600" />
+                <span className="font-medium text-slate-700">{doc.type}</span>
+                <span className="text-slate-500">— {doc.fileName}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FacultyProfileSection({ user }: { user: User }) {
+  const assignments = getFacultyAssignments(user.id);
+
+  return (
+    <div className="bg-white rounded-lg border border-slate-200 p-6">
+      <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+        <BookOpen className="w-5 h-5 text-amber-600" />
+        My Teaching Assignments ({assignments.length})
+      </h3>
+
+      {assignments.length === 0 ? (
+        <p className="text-sm text-slate-500">No subjects assigned yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {assignments.map(asn => {
+            const subject = getSubjectById(asn.subjectId);
+            const program = subject ? getProgramById(subject.programId) : null;
+            const dept = getDepartmentById(asn.departmentId);
+
+            return (
+              <div key={asn.id} className="flex items-center gap-4 p-3 bg-amber-50 rounded-lg">
+                <FileText className="w-4 h-4 text-amber-600 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-900">{subject?.name || 'Unknown'}</p>
+                  <p className="text-xs text-slate-500">
+                    {program?.name} ({program?.level}) — {dept?.name} — {subject?.yearLabel}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

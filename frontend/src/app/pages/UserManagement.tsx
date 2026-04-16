@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { users, schools, departments, type UserRole } from '../data/universityData';
+import { users, schools, departments } from '../data/universityData';
 import { Plus, Edit, Trash2, Users as UsersIcon } from 'lucide-react';
 
 export default function UserManagement() {

@@ -4,14 +4,18 @@ import { useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 
 export default function Root() {
-  const { currentUser } = useAuth();
+  const { currentUser, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!currentUser) {
+    if (!loading && !currentUser) {
       navigate('/login');
     }
-  }, [currentUser, navigate]);
+  }, [currentUser, loading, navigate]);
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center text-slate-500">Loading...</div>;
+  }
 
   if (!currentUser) {
     return null;

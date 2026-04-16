@@ -1,6 +1,6 @@
 import { useAuth } from '../context/AuthContext';
 import { programs, schools, departments, getDepartmentsBySchool, getProgramsByDepartment } from '../data/universityData';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingUp } from 'lucide-react';
 
 export default function Analytics() {

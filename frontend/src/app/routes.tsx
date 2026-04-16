@@ -9,6 +9,8 @@ import UserManagement from './pages/UserManagement';
 import SchoolManagement from './pages/SchoolManagement';
 import DepartmentManagement from './pages/DepartmentManagement';
 import TeacherAssignment from './pages/TeacherAssignment';
+import Profile from './pages/Profile';
+import SyllabusEditor from './pages/SyllabusEditor';
 
 export const router = createBrowserRouter([
   {
@@ -20,7 +22,9 @@ export const router = createBrowserRouter([
     Component: Root,
     children: [
       { index: true, Component: Dashboard },
+      { path: 'profile', Component: Profile },
       { path: 'syllabus/new', Component: SyllabusBuilder },
+      { path: 'syllabus/edit/:subjectId', Component: SyllabusEditor },
       { path: 'approvals', Component: Approvals },
       { path: 'analytics', Component: Analytics },
       { path: 'users', Component: UserManagement },

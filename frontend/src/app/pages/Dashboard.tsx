@@ -238,26 +238,28 @@ export default function Dashboard() {
           )}
 
           {/* Recent Activity */}
-          <div className="bg-white rounded-lg border border-slate-200 p-6">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Recent Activity</h2>
-            <div className="space-y-3">
-              <ActivityItem
-                action="Syllabus submitted"
-                subject="B.Tech CSE"
-                time="2 hours ago"
-              />
-              <ActivityItem
-                action="Dean approved"
-                subject="M.Tech CSE"
-                time="5 hours ago"
-              />
-              <ActivityItem
-                action="New program added"
-                subject="MBA"
-                time="1 day ago"
-              />
+          {currentUser.role !== 'Faculty' && (
+            <div className="bg-white rounded-lg border border-slate-200 p-6">
+              <h2 className="text-lg font-semibold text-slate-900 mb-4">Recent Activity</h2>
+              <div className="space-y-3">
+                <ActivityItem
+                  action="Syllabus submitted"
+                  subject="B.Tech CSE"
+                  time="2 hours ago"
+                />
+                <ActivityItem
+                  action="Dean approved"
+                  subject="M.Tech CSE"
+                  time="5 hours ago"
+                />
+                <ActivityItem
+                  action="New program added"
+                  subject="MBA"
+                  time="1 day ago"
+                />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

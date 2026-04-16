@@ -115,13 +115,15 @@ export default function Layout({ children }: LayoutProps) {
                 </Link>
               )}
 
-              <Link
-                to="/analytics"
-                className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-2"
-              >
-                <BarChart3 className="w-4 h-4" />
-                Analytics
-              </Link>
+              {(currentUser.role === 'HOD' || currentUser.role === 'Dean' || currentUser.role === 'SuperAdmin') && (
+                <Link
+                  to="/analytics"
+                  className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  Analytics
+                </Link>
+              )}
             </nav>
           </div>
 

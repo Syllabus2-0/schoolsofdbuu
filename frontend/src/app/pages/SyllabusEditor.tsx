@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router';
+import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import {
   getSubjectById,
@@ -37,7 +37,9 @@ export default function SyllabusEditor() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
 
-  const [step, setStep] = useState<Step>('upload');
+  const [searchParams] = useSearchParams();
+  const initialStep = searchParams.get('step') as Step || 'upload';
+  const [step, setStep] = useState<Step>(initialStep);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -49,10 +51,16 @@ export default function SyllabusEditor() {
     if (step === 'generating') {
       const timer = setTimeout(() => {
         setOutcomes([
-          { id: '1', type: 'CO', code: 'CO1', description: 'Understand the fundamental concepts of the subject.' },
-          { id: '2', type: 'CO', code: 'CO2', description: 'Analyze complex problems using structured methodologies.' },
-          { id: '3', type: 'CLO', code: 'CLO1', description: 'Apply theoretical knowledge to practical scenarios.' },
-          { id: '4', type: 'CLO', code: 'CLO2', description: 'Design modern solutions considering ethical implications.' },
+          { id: '1', type: 'CO', code: 'CO 1.', description: 'Understand cloud computing models, architectures, and performance aspects for scalable system design.' },
+          { id: '2', type: 'CO', code: 'CO 2.', description: 'Analyze virtualization and containerization technologies for efficient resource management in cloud environments.' },
+          { id: '3', type: 'CO', code: 'CO 3.', description: 'Analyze cloud architecture and data center design for efficient resource management and secure cloud operations.' },
+          { id: '4', type: 'CO', code: 'CO 4.', description: 'Evaluate cloud service performance using QoS metrics and Service Level Agreements (SLA).' },
+          { id: '5', type: 'CO', code: 'CO 5.', description: 'Analyze advanced cloud architectures and emerging technologies for building scalable and resilient systems.' },
+          { id: '6', type: 'CLO', code: 'CLO 1.', description: 'Apply cloud computing concepts and service models to analyze scalable applications and real-world platforms like Netflix.' },
+          { id: '7', type: 'CLO', code: 'CLO 2.', description: 'Apply virtualization and container concepts to design scalable applications using modern tools like Docker and Kubernetes.' },
+          { id: '8', type: 'CLO', code: 'CLO 3.', description: 'Apply cloud architecture concepts to design scalable, secure systems and evaluate platforms like AWS and Azure.' },
+          { id: '9', type: 'CLO', code: 'CLO 4.', description: 'Apply SLA and monitoring concepts to ensure scalability, reliability, and performance in cloud systems using tools like AWS CloudWatch.' },
+          { id: '10', type: 'CLO', code: 'CLO 5.', description: 'Apply modern cloud techniques such as auto-scaling, fault tolerance, and edge computing to design efficient real-world applications.' },
         ]);
         setStep('verify');
       }, 2500);
@@ -207,38 +215,54 @@ export default function SyllabusEditor() {
                 </div>
               </div>
 
-              <div className="p-6 overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-200">
-                      <th className="py-3 px-4 text-sm font-semibold text-slate-900">Type</th>
-                      <th className="py-3 px-4 text-sm font-semibold text-slate-900">Code</th>
-                      <th className="py-3 px-4 text-sm font-semibold text-slate-900 w-full">Description</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {outcomes.map((item) => (
-                      <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50 group">
-                        <td className="py-3 px-4 text-sm">
-                          <span className={`px-2 py-1 rounded-md font-medium text-xs ${item.type === 'CO' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'}`}>
-                            {item.type}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-sm font-medium text-slate-900 whitespace-nowrap">
+              <div className="bg-[#282828] px-8 py-10 space-y-12 overflow-x-auto">
+                {/* CLO Section */}
+                <div className="w-full">
+                  <div className="bg-[#FFBC00] px-6 py-3 flex items-center">
+                    <h3 className="font-bold text-white text-lg tracking-wide">Outcome Related Course Learning Objectives:</h3>
+                  </div>
+                  <div className="flex flex-col border-b border-[#3a3a3a]">
+                    {outcomes.filter(o => o.type === 'CLO').map(item => (
+                      <div key={item.id} className="flex border-t border-[#3a3a3a] hover:bg-[#333] transition-colors">
+                        <div className="px-6 py-4 w-28 shrink-0 flex items-start pt-5 font-bold text-white text-base">
                           {item.code}
-                        </td>
-                        <td className="py-3 px-4">
-                          <input
-                            type="text"
+                        </div>
+                        <div className="px-4 py-4 flex-1">
+                          <textarea
                             value={item.description}
                             onChange={(e) => updateOutcome(item.id, e.target.value)}
-                            className="w-full bg-transparent border-transparent px-2 py-1.5 focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100 rounded-md transition-all text-sm text-slate-700"
+                            className="w-full bg-transparent border-transparent resize-none focus:outline-none focus:ring-1 focus:ring-[#FFBC00] rounded p-1 text-white text-base leading-relaxed"
+                            rows={3}
                           />
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
+                  </div>
+                </div>
+
+                {/* CO Section */}
+                <div className="w-full">
+                  <div className="bg-[#FFBC00] px-6 py-3 flex items-center">
+                    <h3 className="font-bold text-white text-lg tracking-wide">Course Outcome: At the end of the course, student will be able to</h3>
+                  </div>
+                  <div className="flex flex-col border-b border-[#3a3a3a]">
+                    {outcomes.filter(o => o.type === 'CO').map(item => (
+                      <div key={item.id} className="flex border-t border-[#3a3a3a] hover:bg-[#333] transition-colors">
+                        <div className="px-6 py-4 w-28 shrink-0 flex items-start pt-5 font-bold text-white text-base">
+                          {item.code}
+                        </div>
+                        <div className="px-4 py-4 flex-1">
+                          <textarea
+                            value={item.description}
+                            onChange={(e) => updateOutcome(item.id, e.target.value)}
+                            className="w-full bg-transparent border-transparent resize-none focus:outline-none focus:ring-1 focus:ring-[#FFBC00] rounded p-1 text-white text-base leading-relaxed"
+                            rows={2}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               <div className="p-6 border-t border-slate-200 bg-slate-50 flex justify-end gap-4">
@@ -268,44 +292,77 @@ export default function SyllabusEditor() {
                 </div>
               </div>
 
-              <div className="p-6 overflow-x-auto">
-                 <table className="w-full text-center border-collapse border border-slate-200">
-                   <thead>
-                     <tr className="bg-slate-50 print:bg-slate-100">
-                       <th className="border border-slate-200 p-3 text-sm font-semibold text-slate-900">CO Code</th>
-                       {/* Mock PO Columns */}
-                       {[1, 2, 3, 4, 5, 6].map(po => (
-                          <th key={`po${po}`} className="border border-slate-200 p-3 text-xs font-semibold text-slate-600">PO{po}</th>
-                       ))}
-                       {/* Mock PSO Columns */}
-                       {[1, 2].map(pso => (
-                          <th key={`pso${pso}`} className="border border-slate-200 p-3 text-xs font-semibold text-slate-600">PSO{pso}</th>
-                       ))}
-                     </tr>
-                   </thead>
-                   <tbody>
-                      {outcomes.filter(o => o.type === 'CO').map(co => (
-                        <tr key={co.id}>
-                          <td className="border border-slate-200 p-2 text-sm font-medium text-slate-900">{co.code}</td>
-                          {[1, 2, 3, 4, 5, 6].map(po => (
-                            <td key={`v-po${po}`} className="border border-slate-200 p-2 text-sm text-slate-600">{Math.floor(Math.random() * 3) + 1}</td>
-                          ))}
-                          {[1, 2].map(pso => (
-                            <td key={`v-pso${pso}`} className="border border-slate-200 p-2 text-sm text-slate-600">{Math.floor(Math.random() * 3) + 1}</td>
-                          ))}
-                        </tr>
-                      ))}
-                   </tbody>
-                 </table>
+              <div className="p-8 bg-[#282828] overflow-x-auto text-white">
+                 <div className="border border-white/20">
+                   {/* Table Header Section */}
+                   <div className="bg-[#964B00] p-3 border-b border-white/20">
+                     <h3 className="font-bold text-white text-lg">Course Evaluation Matrix</h3>
+                   </div>
+                   
+                   <table className="w-full text-center border-collapse">
+                     <thead>
+                       <tr className="bg-[#282828]">
+                         <th className="border border-white/20 p-2 font-semibold text-xs border-t-0">S<br/>N</th>
+                         <th className="border border-white/20 p-3 font-semibold text-sm border-t-0">Course<br/>Outcome</th>
+                         {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(po => (
+                            <th key={`po${po}`} className="border border-white/20 p-2 font-semibold text-sm border-t-0">
+                              <div className="flex flex-col items-center leading-tight">
+                                <span>P</span>
+                                <span>O</span>
+                                <span>{po}</span>
+                              </div>
+                            </th>
+                         ))}
+                         {[1, 2, 3].map(pso => (
+                            <th key={`pso${pso}`} className="border border-white/20 p-2 font-semibold text-sm border-t-0">
+                              <div className="flex flex-col items-center leading-tight">
+                                <span>P</span>
+                                <span>S</span>
+                                <span>O</span>
+                                <span className="mt-1">{pso}</span>
+                              </div>
+                            </th>
+                         ))}
+                       </tr>
+                     </thead>
+                     <tbody>
+                        {[
+                          { co: 'CO 1', po: [2, 1, 2, 1, 1, '', '', '', '', '', '', ''], pso: [2, '', 2] },
+                          { co: 'CO 2', po: [2, 1, 1, '', 1, '', '', '', '', '', '', ''], pso: [2, '', 1] },
+                          { co: 'CO 3', po: [2, 1, 2, 1, '', '', '', '', '', '', '', ''], pso: ['', '', 1] },
+                          { co: 'CO 4', po: ['', 1, 2, 1, '', '', '', '', '', '', '', ''], pso: [1, '', ''] },
+                          { co: 'CO 5', po: [2, 1, '', 2, 1, '', '', '', '', '', '', ''], pso: [2, '', 1] }
+                        ].map((row, index) => (
+                          <tr key={row.co} className="hover:bg-white/5 transition-colors">
+                            <td className="border border-white/20 p-3 text-sm font-semibold">{index + 1}</td>
+                            <td className="border border-white/20 p-3 text-sm font-semibold">{row.co}</td>
+                            {row.po.map((val, i) => (
+                              <td key={`v-po${i}`} className="border border-white/20 p-3 text-sm">{val}</td>
+                            ))}
+                            {row.pso.map((val, i) => (
+                              <td key={`v-pso${i}`} className="border border-white/20 p-3 text-sm">{val}</td>
+                            ))}
+                          </tr>
+                        ))}
+                     </tbody>
+                   </table>
+                 </div>
+
+                 {/* Legend */}
+                 <div className="flex justify-between mt-8 text-sm font-semibold text-white px-4">
+                   <span>1 = Objective addressed slightly</span>
+                   <span>2= Moderately addressed</span>
+                   <span>3= Strongly addressed</span>
+                 </div>
               </div>
 
               <div className="p-6 border-t border-slate-200 bg-slate-50 flex justify-end gap-4">
                  <button
-                   onClick={() => navigate('/')}
-                   className="flex justify-center items-center gap-2 px-8 py-3 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
+                   onClick={() => navigate(`/syllabus/review/${subjectId}`)}
+                   className="flex justify-center items-center gap-2 px-8 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
                  >
-                   <Save className="w-5 h-5" />
-                   Submit Final Syllabus
+                   <ArrowRight className="w-5 h-5" />
+                   Review Syllabus
                  </button>
               </div>
             </div>

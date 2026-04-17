@@ -1,6 +1,6 @@
 export type UserRole = 'SuperAdmin' | 'Dean' | 'HOD' | 'Faculty';
 export type ProgramLevel = 'UG' | 'PG' | 'Ph.D';
-export type SyllabusStatus = 'Draft' | 'Pending HOD Review' | 'Pending Dean Approval' | 'Published';
+export type SyllabusStatus = 'Draft' | 'Pending HOD Review' | 'Pending Dean Approval' | 'Pending Admin Approval' | 'Published';
 
 export interface IntakeStats {
   year: number;

@@ -13,6 +13,7 @@ import {
   Building2,
   LogOut,
   User,
+  Bell,
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -122,7 +123,7 @@ export default function Layout({ children }: LayoutProps) {
                 </Link>
               )}
 
-              {(currentUser.role === 'HOD' || currentUser.role === 'Dean') && (
+              {(currentUser.role === 'HOD' || currentUser.role === 'Dean' || currentUser.role === 'SuperAdmin') && (
                 <Link
                   to="/approvals"
                   className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-2"
@@ -159,6 +160,17 @@ export default function Layout({ children }: LayoutProps) {
                 <p className="text-xs text-slate-500 group-hover:text-indigo-400 transition-colors">{currentUser.email}</p>
               </Link>
               <div className="h-8 w-px bg-slate-200 mx-1 border-r"></div>
+              
+              {/* Notification Bell */}
+              <Link
+                to="/notifications"
+                className="p-2 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-colors text-slate-600 relative group"
+                title="Notifications"
+              >
+                <Bell className="w-5 h-5 group-hover:animate-wiggle" />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+              </Link>
+
               <Link
                 to="/profile"
                 className="p-2 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-colors text-slate-600"

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import {
   syllabi,
@@ -12,10 +13,11 @@ import { CheckCircle, XCircle, MessageSquare, FileText } from 'lucide-react';
 
 export default function Approvals() {
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
   const [selectedSyllabus, setSelectedSyllabus] = useState<string | null>(null);
   const [commentText, setCommentText] = useState('');
 
-  if (!currentUser || (currentUser.role !== 'HOD' && currentUser.role !== 'Dean')) {
+  if (!currentUser || (currentUser.role !== 'HOD' && currentUser.role !== 'Dean' && currentUser.role !== 'SuperAdmin')) {
     return <div className="p-8">Access denied</div>;
   }
 
@@ -25,6 +27,9 @@ export default function Approvals() {
     }
     if (currentUser.role === 'Dean') {
       return s.status === 'Pending Dean Approval';
+    }
+    if (currentUser.role === 'SuperAdmin') {
+      return s.status === 'Pending Admin Approval';
     }
     return false;
   });
@@ -182,113 +187,21 @@ export default function Approvals() {
                   </div>
                 </div>
 
-                {/* Courses */}
-                <div className="bg-white rounded-lg border border-slate-200 p-6">
-                  <h3 className="font-semibold text-slate-900 mb-4">Course Details</h3>
-
-                  {selectedSyllabusData.semesters.map(semester => (
-                    <div key={semester.semesterNumber} className="mb-6">
-                      <h4 className="text-sm font-medium text-slate-700 mb-3">
-                        Semester {semester.semesterNumber}
-                      </h4>
-
-                      <div className="space-y-3">
-                        {semester.courses.map(course => (
-                          <div
-                            key={course.id}
-                            className="p-4 border border-slate-200 rounded-lg"
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="font-medium text-slate-900">
-                                  {course.code} - {course.name}
-                                </div>
-                                <div className="text-sm text-slate-600 mt-1">
-                                  {course.description}
-                                </div>
-                              </div>
-                              <div className="ml-4 flex gap-2">
-                                <span className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded">
-                                  {course.credits} credits
-                                </span>
-                                <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded">
-                                  {course.type}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Comments */}
-                <div className="bg-white rounded-lg border border-slate-200 p-6">
-                  <h3 className="font-semibold text-slate-900 mb-4">Comments</h3>
-
-                  <div className="space-y-3 mb-4">
-                    {selectedSyllabusData.comments.length === 0 ? (
-                      <p className="text-sm text-slate-500">No comments yet</p>
-                    ) : (
-                      selectedSyllabusData.comments.map(comment => (
-                        <div key={comment.id} className="p-3 bg-slate-50 rounded-lg">
-                          <div className="flex items-start justify-between mb-1">
-                            <span className="font-medium text-sm text-slate-900">
-                              {comment.userName}
-                            </span>
-                            <span className="text-xs text-slate-500">
-                              {new Date(comment.timestamp).toLocaleString()}
-                            </span>
-                          </div>
-                          <p className="text-sm text-slate-700">{comment.text}</p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
-                      placeholder="Add a comment..."
-                      className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                    <button
-                      onClick={handleComment}
-                      className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors flex items-center gap-2"
-                    >
-                      <MessageSquare className="w-4 h-4" />
-                      Comment
-                    </button>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="bg-white rounded-lg border border-slate-200 p-6">
-                  <h3 className="font-semibold text-slate-900 mb-4">Review Actions</h3>
-
-                  <div className="flex gap-4">
-                    <button
-                      onClick={handleApprove}
-                      className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-                    >
-                      <CheckCircle className="w-5 h-5" />
-                      Approve
-                    </button>
-                    <button
-                      onClick={handleReject}
-                      disabled={!commentText}
-                      className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <XCircle className="w-5 h-5" />
-                      Reject
-                    </button>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-2 text-center">
-                    Add a comment before rejecting
-                  </p>
+                {/* Review Redirect */}
+                <div className="bg-white rounded-lg border border-slate-200 p-10 mt-6 flex flex-col items-center justify-center text-center">
+                   <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mb-4">
+                      <FileText className="w-8 h-8 text-indigo-600" />
+                   </div>
+                   <h3 className="font-semibold text-lg text-slate-900 mb-2">Detailed Syllabus Review</h3>
+                   <p className="text-slate-500 max-w-md mb-8">
+                      Click below to officially review the full Course Details, COs, CLOs, Contents, and the CO-PO Evaluation Matrix.
+                   </p>
+                   <button
+                     onClick={() => navigate(`/syllabus/review/${selectedSyllabus}`)}
+                     className="flex items-center justify-center gap-2 px-8 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+                   >
+                     Review Detailed Syllabus
+                   </button>
                 </div>
               </div>
             )}

@@ -10,7 +10,6 @@ import UserManagement from "./pages/UserManagement";
 import SchoolManagement from "./pages/SchoolManagement";
 import DepartmentManagement from "./pages/DepartmentManagement";
 import TeacherAssignment from "./pages/TeacherAssignment";
-import SyllabusEditor from "./pages/SyllabusEditor";
 import SyllabusReview from "./pages/SyllabusReview";
 import Notifications from "./pages/Notifications";
 import Profile from "./pages/Profile";
@@ -30,8 +29,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, Component: Dashboard },
       { path: "syllabus/new", Component: SyllabusBuilder },
-      { path: "syllabus/edit/:subjectId", Component: SyllabusEditor },
-      { path: "syllabus/review/:subjectId", Component: SyllabusReview },
+            { path: "syllabus/review/:syllabusId", Component: SyllabusReview },
       { path: "approvals", Component: Approvals },
       { path: "analytics", Component: Analytics },
       { path: "users", Component: UserManagement },

@@ -75,15 +75,23 @@ export default function AdminAcademicTree() {
   // ── Role-based visibility ─────────────────
   let visibleSchools = schools;
   if (currentUser.role === 'Dean' && currentUser.schoolId) {
-    visibleSchools = schools.filter(s => s._id === currentUser.schoolId || s.id === currentUser.schoolId);
+    const sid = currentUser.schoolId?._id || currentUser.schoolId;
+    visibleSchools = schools.filter(s => {
+      const schId = s._id || s.id;
+      return schId?.toString() === sid?.toString();
+    });
   }
 
   // ──────────────────────────────────────────
   // HOD View — Department → UG/PG/PhD → Programs → Assigned Years → Subjects
   // ──────────────────────────────────────────
-  if (isHOD && currentUser.departmentId) {
-    const dept = departments.find(d => (d._id || d.id)?.toString() === currentUser.departmentId.toString());
-    if (!dept) return <div className="p-4 text-xs text-slate-500">Department not found.</div>;
+  if (isHOD) {
+    if (!currentUser.departmentId) {
+       return <div className="p-4 text-xs text-slate-500">HOD department not assigned.</div>;
+    }
+    const myDeptId = currentUser.departmentId?._id || currentUser.departmentId;
+    const dept = departments.find(d => (d._id || d.id)?.toString() === myDeptId.toString());
+    if (!dept) return <div className="p-4 text-xs text-slate-500">Department data not found.</div>;
 
     const deptPrograms = programs.filter(p => {
       const did = p.departmentId?._id || p.departmentId;
@@ -190,6 +198,8 @@ export default function AdminAcademicTree() {
   // ──────────────────────────────────────────
   // SuperAdmin / Dean View
   // ──────────────────────────────────────────
+  if (isHOD) return null; // Safety break
+
   return (
     <div className="space-y-1">
       <div className="mb-4 px-2">

@@ -24,6 +24,7 @@ export default function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
+  const isRegistrar = currentUser?.role === 'Registrar' || currentUser?.role === 'SuperAdmin';
 
   const handleLogout = () => {
     logout();
@@ -74,7 +75,7 @@ export default function Layout({ children }: LayoutProps) {
                 Dashboard
               </Link>
 
-              {currentUser.role === 'SuperAdmin' && (
+              {isRegistrar && (
                 <>
                   <Link
                     to="/users"
@@ -142,7 +143,7 @@ export default function Layout({ children }: LayoutProps) {
                 </Link>
               )}
 
-              {(currentUser.role === 'HOD' || currentUser.role === 'Dean' || currentUser.role === 'SuperAdmin') && (
+              {(currentUser.role === 'HOD' || currentUser.role === 'Dean' || isRegistrar) && (
                 <Link
                   to="/analytics"
                   className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-2"
@@ -157,7 +158,7 @@ export default function Layout({ children }: LayoutProps) {
           <div className="flex items-center gap-4">
             {/* Role Badge */}
             <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700">
-              {currentUser.role === 'SuperAdmin' ? 'Admin' : currentUser.role}
+              {isRegistrar ? 'Registrar' : currentUser.role}
             </span>
 
             {/* User Info */}

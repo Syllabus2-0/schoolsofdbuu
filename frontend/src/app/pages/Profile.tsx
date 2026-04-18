@@ -55,6 +55,7 @@ interface UserProfile {
 }
 
 const roleLabels: Record<string, string> = {
+  Registrar: 'Registrar',
   SuperAdmin: 'Super Administrator',
   Dean: 'Dean',
   HOD: 'Head of Department',
@@ -62,6 +63,7 @@ const roleLabels: Record<string, string> = {
 };
 
 const roleColors: Record<string, { bg: string; text: string; border: string }> = {
+  Registrar: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
   SuperAdmin: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
   Dean: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
   HOD: { bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-200' },
@@ -180,7 +182,7 @@ export default function Profile() {
         </div>
 
         {/* Role-specific sections */}
-        {currentUser.role === 'SuperAdmin' && <AdminProfileSection />}
+        {(currentUser.role === 'SuperAdmin' || currentUser.role === 'Registrar') && <AdminProfileSection />}
         {currentUser.role === 'Dean' && school && <DeanProfileSection school={school} />}
         {currentUser.role === 'HOD' && department && <HODProfileSection user={currentUser as UserProfile} dept={department} popso={popso} />}
         {currentUser.role === 'Faculty' && <FacultyProfileSection assignments={assignments} />}

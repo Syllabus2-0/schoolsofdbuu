@@ -1,6 +1,7 @@
 const Department = require("../models/Department");
 const User = require("../models/User");
 const Program = require("../models/Program");
+const { canAccessDepartment } = require("../utils/accessScope");
 
 // GET /api/departments?schoolId=
 exports.getDepartments = async (req, res) => {
@@ -40,6 +41,9 @@ exports.getDepartment = async (req, res) => {
       .populate("schoolId", "name code")
       .populate("hodId", "name email assignedYears");
     if (!dept) return res.status(404).json({ message: "Department not found" });
+    if (req.user && !canAccessDepartment(req.user, dept)) {
+      return res.status(403).json({ message: "Cannot access another department" });
+    }
     res.json(dept);
   } catch (err) {
     console.error("getDepartment error:", err);
@@ -141,6 +145,10 @@ exports.assignHOD = async (req, res) => {
     user.schoolId = dept.schoolId;
     user.departmentId = dept._id;
     user.assignedYears = Array.isArray(assignedYears) ? assignedYears : [];
+    user.requestedRole = "HOD";
+    user.requestedSchoolId = dept.schoolId;
+    user.requestedDepartmentId = dept._id;
+    user.requestedAssignedYears = Array.isArray(assignedYears) ? assignedYears : [];
     await user.save();
 
     res.json({ message: "HOD assigned", department: dept });

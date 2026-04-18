@@ -16,6 +16,12 @@ interface Department {
   name: string;
 }
 
+interface Program {
+  _id: string;
+  name: string;
+  duration?: number;
+}
+
 type ProgramLevel = 'UG' | 'PG' | 'Ph.D';
 
 interface DashboardStats {
@@ -32,13 +38,6 @@ interface DashboardStats {
   underReview?: number;
   published?: number;
 }
-
-interface Department {
-  _id: string;
-  name: string;
-}
-
-type ProgramLevel = "UG" | "PG" | "Ph.D";
 
 export default function Dashboard() {
   const { currentUser, token } = useAuth();
@@ -59,6 +58,20 @@ export default function Dashboard() {
   const [newProgramYears, setNewProgramYears] = useState(3);
   
   const isDean = currentUser?.role === 'Dean';
+  const isHOD = currentUser?.role === 'HOD';
+  const isRegistrar = currentUser?.role === 'Registrar' || currentUser?.role === 'SuperAdmin';
+  const hasPendingRoleRequest =
+    currentUser?.requestedRole &&
+    currentUser.requestedRole !== currentUser.role;
+
+  // HOD Create Subject States
+  const assignedYears = currentUser?.assignedYears || [];
+  const defaultYear = assignedYears.length > 0 ? assignedYears[0] : 1;
+  const [showCreateSubject, setShowCreateSubject] = useState(false);
+  const [programs, setPrograms] = useState<Program[]>([]);
+  const [newSubjectName, setNewSubjectName] = useState("");
+  const [newSubjectProgramId, setNewSubjectProgramId] = useState("");
+  const [newSubjectYearOrder, setNewSubjectYearOrder] = useState<number>(defaultYear);
 
   useEffect(() => {
     if (!token || !currentUser) return;
@@ -66,10 +79,11 @@ export default function Dashboard() {
     const fetchDashboard = async () => {
       try {
         const auth = { Authorization: `Bearer ${token}` };
-        const [resStats, resSyllabi, resDept] = await Promise.all([
+        const [resStats, resSyllabi, resDept, resPrograms] = await Promise.all([
           fetch('/api/dashboard/stats', { headers: auth }),
           fetch('/api/syllabi', { headers: auth }),
-          currentUser.role === 'Dean' ? fetch('/api/departments', { headers: auth }) : Promise.resolve({ ok: false } as Response)
+          currentUser.role === 'Dean' ? fetch('/api/departments', { headers: auth }) : Promise.resolve({ ok: false } as Response),
+          currentUser.role === 'HOD' ? fetch('/api/programs', { headers: auth }) : Promise.resolve({ ok: false } as Response)
         ]);
         
         if (resStats.ok) {
@@ -79,6 +93,10 @@ export default function Dashboard() {
 
         if (resDept && resDept.ok) {
           setDepartments(await resDept.json());
+        }
+
+        if (resPrograms && resPrograms.ok) {
+          setPrograms(await resPrograms.json());
         }
         
         if (resSyllabi.ok) {
@@ -144,6 +162,32 @@ export default function Dashboard() {
     } catch(err) { console.error(err); }
   };
 
+  const handleCreateSubject = async () => {
+    if (!newSubjectName.trim() || !newSubjectProgramId) return;
+    try {
+      await fetch('/api/subjects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: newSubjectName.trim(),
+          programId: newSubjectProgramId,
+          yearLabel: `Year ${newSubjectYearOrder}`,
+          yearOrder: newSubjectYearOrder,
+          departmentId: currentUser.departmentId
+        })
+      });
+      setNewSubjectName("");
+      setNewSubjectProgramId("");
+      setShowCreateSubject(false);
+      setRefresh(r => r + 1);
+    } catch(err) {
+      console.error(err);
+    }
+  };
+
   if (!currentUser) return null;
   if (loading) return <div className="p-8">Loading dashboard...</div>;
   if (!stats) return <div className="p-8">Failed to load dashboard</div>;
@@ -160,6 +204,17 @@ export default function Dashboard() {
             {currentUser.role} Dashboard
           </p>
         </div>
+
+        {hasPendingRoleRequest && (
+          <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-900">
+            <div className="font-semibold">
+              Role request pending: {currentUser.requestedRole}
+            </div>
+            <p className="mt-1 text-sm text-amber-800">
+              Your requested role has been recorded and will become active after approval and official assignment by the college.
+            </p>
+          </div>
+        )}
 
         {isDean && (
           <div className="flex flex-wrap items-center justify-end gap-4 mb-8">
@@ -180,9 +235,21 @@ export default function Dashboard() {
           </div>
         )}
 
+        {isHOD && (
+          <div className="flex flex-wrap items-center justify-end gap-4 mb-8">
+            <button
+              onClick={() => setShowCreateSubject(true)}
+              className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:-translate-y-0.5 transition-all"
+            >
+              <Plus className="w-5 h-5" />
+              Create Subject
+            </button>
+          </div>
+        )}
+
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {currentUser.role === 'SuperAdmin' && (
+          {isRegistrar && (
             <>
               <StatCard
                 icon={<Building className="w-6 h-6" />}
@@ -477,6 +544,67 @@ export default function Dashboard() {
                     Cancel
                   </button>
                   <button onClick={handleAddProgram} className="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100">
+                    Create
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Create Subject Modal for HOD */}
+        {showCreateSubject && (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl max-w-md w-full p-8 shadow-2xl animate-in fade-in zoom-in duration-200">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-slate-900">Create Subject</h2>
+                <button onClick={() => setShowCreateSubject(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Subject Name</label>
+                  <input
+                    type="text"
+                    value={newSubjectName}
+                    onChange={e => setNewSubjectName(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
+                    placeholder="e.g., Data Structures"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Program</label>
+                  <select
+                    value={newSubjectProgramId}
+                    onChange={e => setNewSubjectProgramId(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium appearance-none"
+                  >
+                    <option value="">Select Program...</option>
+                    {programs.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-2">Academic Year</label>
+                  <select
+                    value={newSubjectYearOrder}
+                    onChange={e => setNewSubjectYearOrder(parseInt(e.target.value))}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium appearance-none"
+                  >
+                    {assignedYears.length > 0
+                      ? assignedYears.map(y => (
+                          <option key={y} value={y}>Year {y}</option>
+                        ))
+                      : [1, 2, 3, 4, 5].map(y => (
+                          <option key={y} value={y}>Year {y}</option>
+                        ))}
+                  </select>
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button onClick={() => setShowCreateSubject(false)} className="flex-1 px-4 py-3 border border-slate-200 text-slate-600 rounded-xl font-semibold hover:bg-slate-50 transition-colors">
+                    Cancel
+                  </button>
+                  <button onClick={handleCreateSubject} disabled={!newSubjectProgramId || !newSubjectName.trim()} className="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100 disabled:opacity-50">
                     Create
                   </button>
                 </div>

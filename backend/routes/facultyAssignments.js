@@ -8,7 +8,7 @@ const {
 } = require("../controllers/facultyAssignmentController");
 
 router.get("/", protect, getAssignments);
-router.post("/", protect, requireRole("HOD", "SuperAdmin"), createAssignment);
-router.delete("/:id", protect, requireRole("HOD", "SuperAdmin"), deleteAssignment);
+router.post("/", protect, requireRole("HOD", "Dean", "SuperAdmin"), createAssignment);
+router.delete("/:id", protect, requireRole("HOD", "Dean", "SuperAdmin"), deleteAssignment);
 
 module.exports = router;

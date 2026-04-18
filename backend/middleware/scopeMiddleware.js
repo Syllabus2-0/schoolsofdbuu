@@ -1,4 +1,5 @@
 const Department = require("../models/Department");
+const { isTopLevelAdmin } = require("../utils/accessScope");
 
 /**
  * Middleware: ensures Dean can only access resources within their own school.
@@ -6,7 +7,7 @@ const Department = require("../models/Department");
  */
 const requireSchoolScope = async (req, res, next) => {
   try {
-    if (req.user.role === "SuperAdmin") return next(); // SuperAdmin bypasses
+    if (isTopLevelAdmin(req.user)) return next();
 
     if (req.user.role === "Dean") {
       if (!req.user.schoolId) {
@@ -30,7 +31,7 @@ const requireSchoolScope = async (req, res, next) => {
  */
 const requireDeptScope = async (req, res, next) => {
   try {
-    if (req.user.role === "SuperAdmin") return next();
+    if (isTopLevelAdmin(req.user)) return next();
     if (req.user.role === "Dean") {
       if (!req.user.schoolId) {
         return res.status(403).json({ message: "Dean not assigned to any school" });

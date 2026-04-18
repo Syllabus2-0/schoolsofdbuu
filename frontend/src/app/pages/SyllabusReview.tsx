@@ -1,55 +1,56 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { CheckCircle, XCircle, MessageSquare, ArrowLeft } from 'lucide-react';
 
 export default function SyllabusReview() {
-  const { subjectId } = useParams();
+  const { syllabusId } = useParams();
   const { currentUser, token } = useAuth();
   const navigate = useNavigate();
   const [commentText, setCommentText] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   // Local state for editable course content
   const [courseDetails, setCourseDetails] = useState({
-    title: 'Cloud Computing', level: 'Undergraduate', credits: '3', category: 'PC',
-    prerequisite: 'Nil', corequisite: 'Nil', nature: 'Theory',
-    L: '3', T: '0', P: '0', C: '3'
+    title: '', level: '', credits: '', category: '',
+    prerequisite: '', corequisite: '', nature: '',
+    L: '', T: '', P: '', C: ''
   });
+  const [clos, setClos] = useState<any[]>([]);
+  const [cos, setCos] = useState<any[]>([]);
+  const [units, setUnits] = useState<any[]>([]);
+  const [references, setReferences] = useState<any[]>([]);
+  const [matrix, setMatrix] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [clos, setClos] = useState([
-    { code: 'CLO 1.', desc: 'Apply cloud computing concepts and service models to analyze scalable applications and real-world platforms like Netflix.' },
-    { code: 'CLO 2.', desc: 'Apply virtualization and container concepts to design scalable applications using modern tools like Docker and Kubernetes.' },
-    { code: 'CLO 3.', desc: 'Apply cloud architecture concepts to design scalable, secure systems and evaluate platforms like AWS and Azure.' },
-    { code: 'CLO 4.', desc: 'Apply SLA and monitoring concepts to ensure scalability, reliability, and performance in cloud systems using tools like AWS CloudWatch.' },
-    { code: 'CLO 5.', desc: 'Apply modern cloud techniques such as auto-scaling, fault tolerance, and edge computing to design efficient real-world applications.' }
-  ]);
-
-  const [cos, setCos] = useState([
-    { code: 'CO 1.', desc: 'Understand cloud computing models, architectures, and performance aspects for scalable system design.' },
-    { code: 'CO 2.', desc: 'Analyze virtualization and containerization technologies for efficient resource management in cloud environments.' },
-    { code: 'CO 3.', desc: 'Analyze cloud architecture and data center design for efficient resource management and secure cloud operations.' },
-    { code: 'CO 4.', desc: 'Evaluate cloud service performance using QoS metrics and Service Level Agreements (SLA).' },
-    { code: 'CO 5.', desc: 'Analyze advanced cloud architectures and emerging technologies for building scalable and resilient systems.' },
-  ]);
-
-  const [units, setUnits] = useState([
-    { title: 'Unit I: Introduction to Cloud Computing', desc: 'Overview of Cloud Computing, Evolution of Cloud Computing, Grid Computing, Cluster Computing, Service Models (IaaS, PaaS, SaaS), Deployment Models (Public, Private, Hybrid, Community).' },
-    { title: 'Unit II: Virtualization and Containers', desc: 'Introduction to Virtualization, Types of Virtualization, Hypervisors, Containerization concepts, Docker architecture and commands, Orchestration basics with Kubernetes.' },
-    { title: 'Unit III: Advanced Cloud Architecture', desc: 'Microservices paradigm, Serverless computing, Fault tolerance, Load Balancing, Cloud Security models, Multi-cloud and edge computing networks.' },
-  ]);
-
-  const [references, setReferences] = useState([
-    'Rajkumar Buyya, James Broberg, Andrzej Goscinski, "Cloud Computing Principles and Paradigms".',
-    'Distributed and Cloud Computing, Kai Hwang, Geoffery C. Fox, Jack J. Dongarra.'
-  ]);
-
-  const [matrix, setMatrix] = useState([
-    { co: 'CO 1', po: ['2', '1', '2', '1', '1', '', '', '', '', '', '', ''], pso: ['2', '', '2'] },
-    { co: 'CO 2', po: ['2', '1', '1', '', '1', '', '', '', '', '', '', ''], pso: ['2', '', '1'] },
-    { co: 'CO 3', po: ['2', '1', '2', '1', '', '', '', '', '', '', '', ''], pso: ['', '', '1'] },
-    { co: 'CO 4', po: ['', '1', '2', '1', '', '', '', '', '', '', '', ''], pso: ['1', '', ''] },
-    { co: 'CO 5', po: ['2', '1', '', '2', '1', '', '', '', '', '', '', ''], pso: ['2', '', '1'] }
-  ]);
+  
+  useEffect(() => {
+    if (!syllabusId || !token) {
+      setLoading(false);
+      return;
+    }
+    const fetchSyllabus = async () => {
+      try {
+        const res = await fetch(`/api/syllabi/${syllabusId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.courseDetails) setCourseDetails(data.courseDetails);
+          if (data.clos) setClos(data.clos);
+          if (data.cos) setCos(data.cos);
+          if (data.units) setUnits(data.units);
+          if (data.references) setReferences(data.references);
+          if (data.matrix) setMatrix(data.matrix);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSyllabus();
+  }, [syllabusId, token]);
 
   if (!currentUser) return null;
 
@@ -59,23 +60,30 @@ export default function SyllabusReview() {
   // HOD -> Dean -> SuperAdmin -> Published
 
   const handleApprove = async () => {
-    if (isAuthority && subjectId && token) {
+    if (isAuthority && syllabusId && token) {
       try {
-        await fetch(`/api/syllabi/${subjectId}/approve`, {
+        setError(null);
+        const res = await fetch(`/api/syllabi/${syllabusId}/approve`, {
           method: 'PUT',
           headers: { Authorization: `Bearer ${token}` }
         });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.message || 'Approval failed');
+        }
         navigate('/approvals');
       } catch (err) {
         console.error(err);
+        setError(err instanceof Error ? err.message : 'Approval failed');
       }
     }
   };
 
   const handleReject = async () => {
-    if (isAuthority && subjectId && commentText && token) {
+    if (isAuthority && syllabusId && commentText && token) {
       try {
-        await fetch(`/api/syllabi/${subjectId}/reject`, {
+        setError(null);
+        const res = await fetch(`/api/syllabi/${syllabusId}/reject`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -83,15 +91,43 @@ export default function SyllabusReview() {
           },
           body: JSON.stringify({ comment: commentText })
         });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.message || 'Rejection failed');
+        }
         navigate('/approvals');
       } catch (err) {
         console.error(err);
+        setError(err instanceof Error ? err.message : 'Rejection failed');
       }
     }
   };
 
-  const handleSubmitSyllabus = () => {
-    navigate('/');
+  const handleSubmitSyllabus = async () => {
+    if (!isFaculty || !syllabusId || !token) return;
+
+    try {
+      setError(null);
+      // Ensure we save the fields back to draft first
+      await fetch(`/api/syllabi/${syllabusId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ courseDetails, clos, cos, units, references, matrix })
+      });
+
+      const res = await fetch(`/api/syllabi/${syllabusId}/submit`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || 'Submit failed');
+      }
+      navigate('/');
+    } catch (err) {
+      console.error(err);
+      setError(err instanceof Error ? err.message : 'Submit failed');
+    }
   };
 
   // Helper styles for transparent inputs
@@ -105,7 +141,7 @@ export default function SyllabusReview() {
         <button
           onClick={() => {
             if (isFaculty) {
-              navigate(`/syllabus/edit/${subjectId}?step=matrix`);
+              navigate('/syllabus/new');
             } else {
               navigate(-1);
             }
@@ -115,6 +151,12 @@ export default function SyllabusReview() {
           <ArrowLeft className="w-5 h-5" />
           Back
         </button>
+
+        {error && (
+          <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {error}
+          </div>
+        )}
 
         {/* 1. Course Details Section */}
         <div>

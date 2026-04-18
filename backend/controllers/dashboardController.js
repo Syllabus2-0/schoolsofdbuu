@@ -4,6 +4,7 @@ const Program = require("../models/Program");
 const Subject = require("../models/Subject");
 const Syllabus = require("../models/Syllabus");
 const User = require("../models/User");
+const { isTopLevelAdmin } = require("../utils/accessScope");
 
 // GET /api/dashboard/stats — role-scoped statistics
 exports.getStats = async (req, res) => {
@@ -11,7 +12,7 @@ exports.getStats = async (req, res) => {
     const { role, schoolId, departmentId } = req.user;
     const stats = {};
 
-    if (role === "SuperAdmin") {
+    if (isTopLevelAdmin(req.user)) {
       stats.totalSchools = await School.countDocuments();
       stats.totalDepartments = await Department.countDocuments();
       stats.totalPrograms = await Program.countDocuments();
@@ -69,7 +70,7 @@ exports.getAnalytics = async (req, res) => {
     } else if ((role === "HOD" || role === "Faculty") && departmentId) {
       filter.departmentId = departmentId;
     }
-    // SuperAdmin: no filter (all programs)
+    // Registrar/SuperAdmin: no filter (all programs)
 
     const programs = await Program.find(filter)
       .populate({

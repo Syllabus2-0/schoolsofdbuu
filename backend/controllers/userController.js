@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const { canAccessUserRecord } = require("../utils/accessScope");
 
 // GET /api/users?role=&schoolId=&departmentId=
 exports.getUsers = async (req, res) => {
@@ -16,11 +17,15 @@ exports.getUsers = async (req, res) => {
         { schoolId: null },
       ];
     }
-    // Scope for HOD: users in their department OR any Faculty in their school
+    // Scope for HOD: users in their department OR assignable faculty in their school
+    // Demo flow allows fresh faculty signups before they are attached to a school/department,
+    // so unassigned faculty should remain visible in the teacher-assignment screen.
     if (req.user.role === "HOD" && req.user.departmentId) {
       filter.$or = [
         { departmentId: req.user.departmentId },
         { role: "Faculty", schoolId: req.user.schoolId },
+        { role: "Faculty", schoolId: { $exists: false } },
+        { role: "Faculty", schoolId: null },
       ];
     }
 
@@ -37,6 +42,9 @@ exports.getUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select("-password");
     if (!user) return res.status(404).json({ message: "User not found" });
+    if (!canAccessUserRecord(req.user, user)) {
+      return res.status(403).json({ message: "Cannot access this user" });
+    }
     res.json(user.toSafeObject());
   } catch (err) {
     console.error("getUser error:", err);

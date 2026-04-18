@@ -10,26 +10,21 @@ const DocumentFileSchema = new mongoose.Schema(
   { _id: true },
 );
 
-const CourseSchema = new mongoose.Schema(
-  {
-    code: { type: String, required: true },
-    name: { type: String, required: true },
-    credits: { type: Number, required: true },
-    type: { type: String, enum: ["Core", "Elective", "Lab"], default: "Core" },
-    description: { type: String, default: "" },
-    coDocument: DocumentFileSchema,
-    cloDocument: DocumentFileSchema,
-  },
-  { _id: true },
-);
+const CoCloSchema = new mongoose.Schema({
+  code: String,
+  desc: String,
+}, { _id: false });
 
-const SemesterSchema = new mongoose.Schema(
-  {
-    semesterNumber: { type: Number, required: true },
-    courses: [CourseSchema],
-  },
-  { _id: false },
-);
+const UnitSchema = new mongoose.Schema({
+  title: String,
+  desc: String,
+}, { _id: false });
+
+const MatrixSchema = new mongoose.Schema({
+  co: String,
+  po: [String],
+  pso: [String],
+}, { _id: false });
 
 const CommentSchema = new mongoose.Schema(
   {
@@ -49,7 +44,15 @@ const SyllabusSchema = new mongoose.Schema(
     subjectId: { type: mongoose.Schema.Types.ObjectId, ref: "Subject", default: null },
     facultyId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     status: { type: String, enum: statuses, default: "Draft" },
-    semesters: [SemesterSchema],
+    courseDetails: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+    clos: [CoCloSchema],
+    cos: [CoCloSchema],
+    units: [UnitSchema],
+    references: [String],
+    matrix: [MatrixSchema],
     hodSignature: { type: String, default: null },
     deanSignature: { type: String, default: null },
     comments: [CommentSchema],

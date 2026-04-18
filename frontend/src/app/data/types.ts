@@ -1,4 +1,4 @@
-export type UserRole = 'SuperAdmin' | 'Dean' | 'HOD' | 'Faculty';
+export type UserRole = 'SuperAdmin' | 'Registrar' | 'Dean' | 'HOD' | 'Faculty';
 
 export interface User {
   id: string;
@@ -10,6 +10,10 @@ export interface User {
   departmentId?: string | any;
   assignedYear?: number;
   assignedYears?: number[];
+  requestedRole?: Exclude<UserRole, "SuperAdmin">;
+  requestedSchoolId?: string | any;
+  requestedDepartmentId?: string | any;
+  requestedAssignedYears?: number[];
 }
 
 export type ProgramLevel = 'UG' | 'PG' | 'Ph.D';

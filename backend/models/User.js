@@ -1,7 +1,8 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 
-const roles = ["SuperAdmin", "Dean", "HOD", "Faculty"];
+const roles = ["SuperAdmin", "Registrar", "Dean", "HOD", "Faculty"];
+const requestedRoles = ["SuperAdmin", "Registrar", "Dean", "HOD", "Faculty"];
 
 const UserSchema = new mongoose.Schema(
   {
@@ -11,7 +12,11 @@ const UserSchema = new mongoose.Schema(
     role: { type: String, enum: roles, default: "Faculty" },
     schoolId: { type: mongoose.Schema.Types.ObjectId, ref: "School", default: null },
     departmentId: { type: mongoose.Schema.Types.ObjectId, ref: "Department", default: null },
-    assignedYears: { type: [Number], default: [] }, // For HOD — which years they manage
+    assignedYears: { type: [Number], default: [] },
+    requestedRole: { type: String, enum: requestedRoles, default: "Faculty" },
+    requestedSchoolId: { type: mongoose.Schema.Types.ObjectId, ref: "School", default: null },
+    requestedDepartmentId: { type: mongoose.Schema.Types.ObjectId, ref: "Department", default: null },
+    requestedAssignedYears: { type: [Number], default: [] },
   },
   { timestamps: true },
 );
@@ -26,7 +31,6 @@ UserSchema.methods.comparePassword = async function (candidate) {
   return bcrypt.compare(candidate, this.password);
 };
 
-// Return clean user object for API responses
 UserSchema.methods.toSafeObject = function () {
   return {
     id: this._id,
@@ -37,6 +41,10 @@ UserSchema.methods.toSafeObject = function () {
     schoolId: this.schoolId,
     departmentId: this.departmentId,
     assignedYears: this.assignedYears,
+    requestedRole: this.requestedRole,
+    requestedSchoolId: this.requestedSchoolId,
+    requestedDepartmentId: this.requestedDepartmentId,
+    requestedAssignedYears: this.requestedAssignedYears,
   };
 };
 

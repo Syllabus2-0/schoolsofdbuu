@@ -1,16 +1,25 @@
 const Program = require("../models/Program");
 const Department = require("../models/Department");
+const { canAccessProgram } = require("../utils/accessScope");
 
 // GET /api/programs?departmentId=
 exports.getPrograms = async (req, res) => {
   try {
     const filter = {};
-    if (req.query.departmentId) filter.departmentId = req.query.departmentId;
+    const requestedDepartmentId = req.query.departmentId;
+    if (requestedDepartmentId) filter.departmentId = requestedDepartmentId;
 
     // Scope for Dean: programs in their school's departments
     if (req.user.role === "Dean" && req.user.schoolId) {
       const deptIds = await Department.find({ schoolId: req.user.schoolId }).distinct("_id");
-      filter.departmentId = { $in: deptIds };
+      if (requestedDepartmentId) {
+        if (!deptIds.some((id) => id.toString() === requestedDepartmentId.toString())) {
+          return res.json([]);
+        }
+        filter.departmentId = requestedDepartmentId;
+      } else {
+        filter.departmentId = { $in: deptIds };
+      }
     }
     // Scope for HOD/Faculty: programs in their department
     if ((req.user.role === "HOD" || req.user.role === "Faculty") && req.user.departmentId) {
@@ -32,6 +41,10 @@ exports.getProgram = async (req, res) => {
   try {
     const program = await Program.findById(req.params.id).populate("departmentId", "name schoolId");
     if (!program) return res.status(404).json({ message: "Program not found" });
+    const dept = await Department.findById(program.departmentId?._id || program.departmentId);
+    if (!canAccessProgram(req.user, program, dept)) {
+      return res.status(403).json({ message: "Cannot access another program" });
+    }
     res.json(program);
   } catch (err) {
     console.error("getProgram error:", err);

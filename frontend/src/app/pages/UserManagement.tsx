@@ -24,6 +24,7 @@ interface Department {
 
 export default function UserManagement() {
   const { currentUser, token } = useAuth();
+  const isRegistrar = currentUser?.role === 'Registrar' || currentUser?.role === 'SuperAdmin';
   
   const [users, setUsers] = useState<User[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
@@ -33,7 +34,7 @@ export default function UserManagement() {
   const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
-    if (!token || currentUser?.role !== 'SuperAdmin') return;
+    if (!token || !isRegistrar) return;
 
     const fetchData = async () => {
       try {
@@ -56,11 +57,12 @@ export default function UserManagement() {
     fetchData();
   }, [token, currentUser]);
 
-  if (!currentUser || currentUser.role !== 'SuperAdmin') {
+  if (!currentUser || !isRegistrar) {
     return <div className="p-8">Access denied</div>;
   }
 
   const roleColors: Record<string, string> = {
+    Registrar: 'bg-purple-100 text-purple-700',
     SuperAdmin: 'bg-purple-100 text-purple-700',
     Dean: 'bg-blue-100 text-blue-700',
     HOD: 'bg-green-100 text-green-700',
@@ -97,9 +99,9 @@ export default function UserManagement() {
               </div>
               <div>
                 <div className="text-2xl font-bold text-slate-900">
-                  {users.filter(u => u.role === 'SuperAdmin').length}
+                  {users.filter(u => u.role === 'Registrar' || u.role === 'SuperAdmin').length}
                 </div>
-                <div className="text-sm text-slate-600">Super Admins</div>
+                <div className="text-sm text-slate-600">Registrars</div>
               </div>
             </div>
           </div>

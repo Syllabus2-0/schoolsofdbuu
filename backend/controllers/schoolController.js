@@ -1,6 +1,7 @@
 const School = require("../models/School");
 const Department = require("../models/Department");
 const User = require("../models/User");
+const { canAccessSchool } = require("../utils/accessScope");
 
 // GET /api/schools — list schools (scoped by role)
 exports.getSchools = async (req, res) => {
@@ -25,6 +26,9 @@ exports.getSchool = async (req, res) => {
   try {
     const school = await School.findById(req.params.id).populate("deanId", "name email");
     if (!school) return res.status(404).json({ message: "School not found" });
+    if (req.user && !canAccessSchool(req.user, school._id)) {
+      return res.status(403).json({ message: "Cannot access another school's details" });
+    }
     res.json(school);
   } catch (err) {
     console.error("getSchool error:", err);
@@ -111,6 +115,10 @@ exports.assignDean = async (req, res) => {
     user.schoolId = school._id;
     user.departmentId = null;
     user.assignedYears = [];
+    user.requestedRole = "Dean";
+    user.requestedSchoolId = school._id;
+    user.requestedDepartmentId = null;
+    user.requestedAssignedYears = [];
     await user.save();
 
     res.json({ message: "Dean assigned", school });

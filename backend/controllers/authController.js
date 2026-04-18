@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const Department = require("../models/Department");
 
 const signToken = (user) => {
   const payload = { id: user._id, role: user.role, email: user.email };
@@ -10,37 +11,67 @@ const signToken = (user) => {
 
 exports.signup = async (req, res) => {
   try {
-    const { name, email, password, role, schoolId, departmentId, assignedYears } = req.body;
+    const {
+      name,
+      email,
+      password,
+      role = "Faculty",
+      schoolId,
+      departmentId,
+    } = req.body;
+
     if (!name || !email || !password) {
       return res.status(400).json({ message: "Name, email and password are required" });
+    }
+
+    if (!["Registrar", "Dean", "HOD", "Faculty"].includes(role)) {
+      return res.status(400).json({ message: "Invalid role" });
     }
 
     const existing = await User.findOne({ email });
     if (existing) return res.status(409).json({ message: "Email already in use" });
 
-    // Allow any role to be assigned based on user choice during testing
-    const safeRole = role || "Faculty";
-
     let finalSchoolId = schoolId || null;
+    let finalDepartmentId = departmentId || null;
+    let finalAssignedYears = [];
 
-    // If departmentId is provided but schoolId is not, derive schoolId from department
-    if (departmentId && !finalSchoolId) {
-      const Department = require("../models/Department");
-      const dept = await Department.findById(departmentId);
-      if (dept) {
-        finalSchoolId = dept.schoolId;
+    if (finalDepartmentId && !finalSchoolId) {
+      const department = await Department.findById(finalDepartmentId);
+      if (!department) {
+        return res.status(404).json({ message: "Selected department not found" });
       }
+      finalSchoolId = department.schoolId;
     }
 
-    const user = await User.create({ 
-      name, 
-      email, 
-      password, 
-      role: safeRole,
+    if (role === "Registrar") {
+      finalSchoolId = null;
+      finalDepartmentId = null;
+      finalAssignedYears = [];
+    }
+
+    if (role === "Dean") {
+      finalDepartmentId = null;
+      finalAssignedYears = [];
+    }
+
+    if (role === "Faculty") {
+      finalAssignedYears = [];
+    }
+
+    const user = await User.create({
+      name,
+      email,
+      password,
+      role,
       schoolId: finalSchoolId,
-      departmentId: departmentId || null,
-      assignedYears: assignedYears || []
+      departmentId: finalDepartmentId,
+      assignedYears: finalAssignedYears,
+      requestedRole: role,
+      requestedSchoolId: finalSchoolId,
+      requestedDepartmentId: finalDepartmentId,
+      requestedAssignedYears: finalAssignedYears,
     });
+
     const token = signToken(user);
     res.status(201).json({ user: user.toSafeObject(), token });
   } catch (err) {
@@ -71,7 +102,6 @@ exports.login = async (req, res) => {
 
 exports.getCurrentUser = async (req, res) => {
   try {
-    // req.user is already populated by protect middleware
     res.json({ user: req.user.toSafeObject() });
   } catch (err) {
     console.error("GetCurrentUser error", err);

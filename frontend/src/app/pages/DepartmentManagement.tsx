@@ -202,8 +202,6 @@ export default function DepartmentManagement() {
 
   if (loading) return <div className="p-8">Loading...</div>;
 
-  const schoolDepts = departments.map(d => ({ id: d._id, name: d.name }));
-
   return (
     <div className="p-8">
       <div className="max-w-7xl mx-auto">

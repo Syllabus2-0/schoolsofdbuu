@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../context/AuthContext";
 import type { UserRole } from "../data/types";
@@ -14,20 +14,17 @@ interface Department {
   name: string;
 }
 
+type ActiveRole = Exclude<UserRole, "SuperAdmin">;
+
 export default function Signup() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<UserRole>("Faculty");
-  
-  // Realtime config arrays
-  const [schools, setSchools] = useState<School[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  
-  // Role specific scopes
+  const [role, setRole] = useState<ActiveRole>("Faculty");
   const [schoolId, setSchoolId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
-  const [assignedYears, setAssignedYears] = useState<number[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
 
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -36,29 +33,43 @@ export default function Signup() {
   useEffect(() => {
     const fetchSelectables = async () => {
       try {
-        const [resSchools, resDepts] = await Promise.all([
-          fetch('/api/schools'),
-          fetch('/api/departments')
+        const [resSchools, resDepartments] = await Promise.all([
+          fetch("/api/schools"),
+          fetch("/api/departments"),
         ]);
+
         if (resSchools.ok) setSchools(await resSchools.json());
-        if (resDepts.ok) setDepartments(await resDepts.json());
-      } catch(err) {
-        console.error("Failed to fetch signup configs", err);
+        if (resDepartments.ok) setDepartments(await resDepartments.json());
+      } catch (err) {
+        console.error("Failed to load signup options", err);
       }
     };
+
     fetchSelectables();
   }, []);
+
+  useEffect(() => {
+    if (role !== "Dean") {
+      setSchoolId("");
+    }
+
+    if (role !== "HOD") {
+      setDepartmentId("");
+    }
+  }, [role]);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const payload = { 
-        name, 
-        email, 
-        password, 
+      const payload = {
+        name,
+        email,
+        password,
         role,
-        ...(role === 'Dean' && { schoolId }),
-        ...(role === 'HOD' && { departmentId, assignedYears }) 
+        ...(role === "Dean" && { schoolId }),
+        ...(role === "HOD" && {
+          departmentId,
+        }),
       };
 
       const res = await fetch("/api/auth/signup", {
@@ -69,7 +80,7 @@ export default function Signup() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Signup failed");
-      
+
       setCurrentUser(data.user);
       if (setToken) setToken(data.token);
       localStorage.setItem("token", data.token);
@@ -80,11 +91,7 @@ export default function Signup() {
     }
   };
 
-  const toggleYear = (year: number) => {
-    setAssignedYears(prev => 
-      prev.includes(year) ? prev.filter(y => y !== year) : [...prev, year]
-    );
-  };
+
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -96,7 +103,14 @@ export default function Signup() {
           <h1 className="text-2xl font-bold">Create an account</h1>
         </div>
 
-        {error && <div className="text-red-600 mb-4 bg-red-50 p-3 rounded text-sm border border-red-200">{error}</div>}
+        {error && (
+          <div className="text-red-600 mb-4 bg-red-50 p-3 rounded text-sm border border-red-200">
+            {error}
+          </div>
+        )}
+        <div className="text-slate-600 mb-4 bg-blue-50 p-3 rounded text-sm border border-blue-200">
+          Demo mode is enabled so you can actively create Registrar, Dean, HOD, and Faculty accounts and test the full flow from scratch.
+        </div>
 
         <div className="space-y-4">
           <input
@@ -126,88 +140,70 @@ export default function Signup() {
             required
           />
 
-          <label htmlFor="role-select" className="block text-sm font-medium text-slate-700">
-            Role
-          </label>
-          <select
-            id="role-select"
-            title="Select user role"
-            value={role}
-            onChange={(e) => setRole(e.target.value as UserRole)}
-            className="w-full px-4 py-3 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-          >
-            <option value="SuperAdmin">Super Administrator</option>
-            <option value="Dean">Dean</option>
-            <option value="HOD">Head of Department</option>
-            <option value="Faculty">Faculty Member</option>
-          </select>
+          <div>
+            <label htmlFor="role" className="block text-sm font-medium text-slate-700 mb-1">
+              Role
+            </label>
+            <select
+              id="role"
+              title="Select role"
+              value={role}
+              onChange={(e) => setRole(e.target.value as ActiveRole)}
+              className="w-full px-4 py-3 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white"
+            >
+              <option value="Registrar">Registrar</option>
+              <option value="Faculty">Faculty</option>
+              <option value="HOD">HOD</option>
+              <option value="Dean">Dean</option>
+            </select>
+          </div>
 
-          {/* Conditional Dean Scoping */}
-          {role === 'Dean' && (
-            <div className="pt-2 animate-fade-in">
-              <label htmlFor="school-select" className="block text-sm font-medium text-slate-700 mb-1">
-                Select School
+          {role === "Dean" && (
+            <div>
+              <label htmlFor="school" className="block text-sm font-medium text-slate-700 mb-1">
+                School
               </label>
               <select
-                id="school-select"
-                title="Select your School"
+                id="school"
+                title="Select school"
                 value={schoolId}
                 onChange={(e) => setSchoolId(e.target.value)}
-                required
-                className="w-full px-4 py-3 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none bg-blue-50"
+                className="w-full px-4 py-3 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white"
               >
-                <option value="">-- Choose your School --</option>
-                {schools.map(s => (
-                  <option key={s._id} value={s._id}>{s.name} ({s.code})</option>
+                <option value="">Choose a school later if needed...</option>
+                {schools.map((school) => (
+                  <option key={school._id} value={school._id}>
+                    {school.name} ({school.code})
+                  </option>
                 ))}
               </select>
             </div>
           )}
 
-          {/* Conditional HOD Scoping */}
-          {role === 'HOD' && (
-            <div className="pt-2 animate-fade-in space-y-4">
+          {role === "HOD" && (
+            <>
               <div>
-                <label htmlFor="department-select" className="block text-sm font-medium text-slate-700 mb-1">
-                  Select Department
+                <label htmlFor="department" className="block text-sm font-medium text-slate-700 mb-1">
+                  Department
                 </label>
                 <select
-                  id="department-select"
-                  title="Select your Department"
+                  id="department"
+                  title="Select department"
                   value={departmentId}
                   onChange={(e) => setDepartmentId(e.target.value)}
-                  required
-                  className="w-full px-4 py-3 border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none bg-blue-50"
+                  className="w-full px-4 py-3 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white"
                 >
-                  <option value="">-- Choose your Department --</option>
-                  {departments.map(d => (
-                    <option key={d._id} value={d._id}>{d.name}</option>
+                  <option value="">Choose a department later if needed...</option>
+                  {departments.map((department) => (
+                    <option key={department._id} value={department._id}>
+                      {department.name}
+                    </option>
                   ))}
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Assigned Years (Optional)
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {[1, 2, 3, 4, 5].map(year => (
-                    <label key={year} className="flex items-center gap-2 cursor-pointer bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors text-sm">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
-                        checked={assignedYears.includes(year)}
-                        onChange={() => toggleYear(year)}
-                      />
-                      <span>Year {year}</span>
-                    </label>
-                  ))}
-                </div>
-                <p className="text-xs text-slate-500 mt-2">
-                  Check the distinct years you govern. Leave all blank to govern across ALL years implicitly.
-                </p>
-              </div>
-            </div>
+
+            </>
           )}
 
           <button className="w-full bg-indigo-600 hover:bg-indigo-700 transition-colors text-white py-3 rounded font-medium mt-4">

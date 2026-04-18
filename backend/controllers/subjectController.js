@@ -1,22 +1,35 @@
 const Subject = require("../models/Subject");
 const Department = require("../models/Department");
 const Program = require("../models/Program");
+const { canAccessSubject, hasAssignedYear } = require("../utils/accessScope");
 
 // GET /api/subjects?programId=&departmentId=
 exports.getSubjects = async (req, res) => {
   try {
     const filter = {};
-    if (req.query.programId) filter.programId = req.query.programId;
-    if (req.query.departmentId) filter.departmentId = req.query.departmentId;
+    const requestedProgramId = req.query.programId;
+    const requestedDepartmentId = req.query.departmentId;
+    if (requestedProgramId) filter.programId = requestedProgramId;
+    if (requestedDepartmentId) filter.departmentId = requestedDepartmentId;
 
     // Scope for Dean: only their school
     if (req.user.role === "Dean" && req.user.schoolId) {
       const deptIds = await Department.find({ schoolId: req.user.schoolId }).distinct("_id");
-      filter.departmentId = { $in: deptIds };
+      if (requestedDepartmentId) {
+        if (!deptIds.some((id) => id.toString() === requestedDepartmentId.toString())) {
+          return res.json([]);
+        }
+        filter.departmentId = requestedDepartmentId;
+      } else {
+        filter.departmentId = { $in: deptIds };
+      }
     }
     // Scope for HOD: only their department
     if (req.user.role === "HOD" && req.user.departmentId) {
       filter.departmentId = req.user.departmentId;
+      if (Array.isArray(req.user.assignedYears) && req.user.assignedYears.length > 0) {
+        filter.yearOrder = { $in: req.user.assignedYears };
+      }
     }
     // Scope for Faculty: only their department
     if (req.user.role === "Faculty" && req.user.departmentId) {
@@ -41,6 +54,10 @@ exports.getSubject = async (req, res) => {
       .populate("programId", "name level")
       .populate("departmentId", "name schoolId");
     if (!subject) return res.status(404).json({ message: "Subject not found" });
+    const dept = await Department.findById(subject.departmentId?._id || subject.departmentId);
+    if (!canAccessSubject(req.user, subject, dept)) {
+      return res.status(403).json({ message: "Cannot access another subject" });
+    }
     res.json(subject);
   } catch (err) {
     console.error("getSubject error:", err);
@@ -59,6 +76,9 @@ exports.createSubject = async (req, res) => {
     // Scope check for HOD
     if (req.user.role === "HOD" && req.user.departmentId.toString() !== departmentId) {
       return res.status(403).json({ message: "Cannot create subject in another department" });
+    }
+    if (req.user.role === "HOD" && !hasAssignedYear(req.user, yearOrder)) {
+      return res.status(403).json({ message: "Cannot create subject outside your assigned years" });
     }
     // Scope check for Dean
     if (req.user.role === "Dean") {
@@ -88,6 +108,12 @@ exports.updateSubject = async (req, res) => {
     }
 
     const { name, yearLabel, yearOrder } = req.body;
+    if (req.user.role === "HOD") {
+      const nextYearOrder = yearOrder != null ? yearOrder : subject.yearOrder;
+      if (!hasAssignedYear(req.user, subject.yearOrder) || !hasAssignedYear(req.user, nextYearOrder)) {
+        return res.status(403).json({ message: "Cannot update subject outside your assigned years" });
+      }
+    }
     if (name) subject.name = name;
     if (yearLabel) subject.yearLabel = yearLabel;
     if (yearOrder != null) subject.yearOrder = yearOrder;
@@ -107,6 +133,9 @@ exports.deleteSubject = async (req, res) => {
 
     if (req.user.role === "HOD" && req.user.departmentId.toString() !== subject.departmentId.toString()) {
       return res.status(403).json({ message: "Cannot delete subject in another department" });
+    }
+    if (req.user.role === "HOD" && !hasAssignedYear(req.user, subject.yearOrder)) {
+      return res.status(403).json({ message: "Cannot delete subject outside your assigned years" });
     }
 
     await subject.deleteOne();

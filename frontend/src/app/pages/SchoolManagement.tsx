@@ -25,6 +25,7 @@ interface Department {
 
 export default function SchoolManagement() {
   const { currentUser, token } = useAuth();
+  const isRegistrar = currentUser?.role === 'Registrar' || currentUser?.role === 'SuperAdmin';
   const [schools, setSchools] = useState<School[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -40,7 +41,7 @@ export default function SchoolManagement() {
   const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
-    if (!token || currentUser?.role !== 'SuperAdmin') return;
+    if (!token || !isRegistrar) return;
 
     const fetchData = async () => {
       try {
@@ -61,9 +62,9 @@ export default function SchoolManagement() {
       }
     };
     fetchData();
-  }, [token, currentUser, refresh]);
+  }, [token, currentUser, refresh, isRegistrar]);
 
-  if (!currentUser || currentUser.role !== 'SuperAdmin') {
+  if (!currentUser || !isRegistrar) {
     return <div className="p-8">Access denied</div>;
   }
 
@@ -114,7 +115,7 @@ export default function SchoolManagement() {
 
   // Get users who could be deans (Deans without school or all users)
   const availableDeans = users.filter(
-    u => u.role === 'Dean' || u.role === 'Faculty' || u.role === 'SuperAdmin'
+    u => u.role === 'Dean' || u.role === 'Faculty' || u.role === 'Registrar' || u.role === 'SuperAdmin'
   );
 
   if (loading) return <div className="p-8">Loading schools...</div>;

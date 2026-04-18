@@ -31,7 +31,15 @@ const protect = async (req, res, next) => {
  * requireRole — checks user has one of the specified roles
  */
 const requireRole = (...roles) => (req, res, next) => {
-  if (!req.user || !roles.includes(req.user.role)) {
+  if (!req.user) {
+    return res.status(403).json({ message: "Forbidden: insufficient role" });
+  }
+
+  const allowedRoles = new Set(roles);
+  if (allowedRoles.has("SuperAdmin")) allowedRoles.add("Registrar");
+  if (allowedRoles.has("Registrar")) allowedRoles.add("SuperAdmin");
+
+  if (!allowedRoles.has(req.user.role)) {
     return res.status(403).json({ message: "Forbidden: insufficient role" });
   }
   next();

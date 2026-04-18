@@ -6,6 +6,7 @@ const {
   getSyllabus,
   createSyllabus,
   updateSyllabus,
+  submitSyllabus,
   approveSyllabus,
   rejectSyllabus,
   addComment,
@@ -15,6 +16,7 @@ router.get("/", protect, getSyllabi);
 router.get("/:id", protect, getSyllabus);
 router.post("/", protect, requireRole("Faculty"), createSyllabus);
 router.put("/:id", protect, requireRole("Faculty", "SuperAdmin"), updateSyllabus);
+router.put("/:id/submit", protect, requireRole("Faculty"), submitSyllabus);
 router.put("/:id/approve", protect, requireRole("HOD", "Dean"), approveSyllabus);
 router.put("/:id/reject", protect, requireRole("HOD", "Dean"), rejectSyllabus);
 router.post("/:id/comments", protect, addComment);

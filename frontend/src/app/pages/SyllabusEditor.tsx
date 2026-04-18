@@ -139,8 +139,9 @@ export default function SyllabusEditor() {
           { headers: auth },
         );
         if (popsoRes.ok) setPopsoDocs(await popsoRes.json());
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setError(msg);
       } finally {
         setLoading(false);
       }
@@ -337,6 +338,8 @@ export default function SyllabusEditor() {
                     ref={fileInputRef}
                     onChange={handleFileUpload}
                     accept=".pdf,.doc,.docx"
+                    aria-label="Upload syllabus file"
+                    title="Upload syllabus file (.pdf, .doc, .docx)"
                   />
                   <div className="flex gap-4 justify-center">
                     <button
@@ -429,6 +432,9 @@ export default function SyllabusEditor() {
                               }
                               className="w-full bg-transparent border-transparent resize-none focus:outline-none focus:ring-1 focus:ring-[#FFBC00] rounded p-1 text-white text-base leading-relaxed"
                               rows={3}
+                              placeholder="Describe the CLO here"
+                              aria-label={`CLO ${item.code} description`}
+                              title={`CLO ${item.code} description`}
                             />
                           </div>
                         </div>
@@ -463,6 +469,9 @@ export default function SyllabusEditor() {
                               }
                               className="w-full bg-transparent border-transparent resize-none focus:outline-none focus:ring-1 focus:ring-[#FFBC00] rounded p-1 text-white text-base leading-relaxed"
                               rows={2}
+                              placeholder="Describe the CO here"
+                              aria-label={`CO ${item.code} description`}
+                              title={`CO ${item.code} description`}
                             />
                           </div>
                         </div>

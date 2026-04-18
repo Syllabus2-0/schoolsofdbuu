@@ -185,36 +185,12 @@ export default function TeacherAssignment() {
           </p>
         </div>
 
-        {isDean && (
-          <div className="bg-white rounded-lg border border-slate-200 p-6 mb-8">
-            <h2 className="text-lg font-semibold text-slate-900 mb-2">Select Department</h2>
-            <select
-              value={selectedDeptId}
-              onChange={e => setSelectedDeptId(e.target.value)}
-              className="w-full max-w-md px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-            >
-              <option value="">Choose a department...</option>
-              {schoolDepts.map(d => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {!activeDeptId ? (
-          <div className="bg-white rounded-lg border border-slate-200 p-12 text-center">
-            <BookOpen className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-500">Please select a department to proceed</p>
-          </div>
-        ) : (
-          <>
-            {/* PO/PSO Upload Section */}
-            {!isDean && (
-              <div className="bg-white rounded-lg border border-slate-200 p-6 mb-8">
-                <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                  <Upload className="w-5 h-5 text-indigo-600" />
-                  Program Outcomes Documents
-                </h2>
+        {/* PO/PSO Upload Section */}
+        <div className="bg-white rounded-lg border border-slate-200 p-6 mb-8">
+          <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <Upload className="w-5 h-5 text-indigo-600" />
+            Program Outcomes Documents
+          </h2>
                 <p className="text-sm text-slate-500 mb-4">
                   Upload PO and PSO documents. These will be shared with all teachers under your department for {displayYearsString}.
                 </p>
@@ -309,7 +285,6 @@ export default function TeacherAssignment() {
                   </div>
                 </div>
               </div>
-            )}
 
             {/* Subject-Teacher Assignment Table */}
             {levelOrder.map(level => {
@@ -471,7 +446,7 @@ export default function TeacherAssignment() {
                   </div>
 
                   <div className="flex justify-end gap-3">
-                    <button onClick={() => { setShowAssignModal(null); setFacultySearch(''); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
+                    <button onClick={() => setShowAssignModal(null)} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
                       Cancel
                     </button>
                     <button
@@ -485,7 +460,7 @@ export default function TeacherAssignment() {
                 </div>
               </div>
             )}
-          </div>
       </div>
-      );
+    </div>
+  );
 }

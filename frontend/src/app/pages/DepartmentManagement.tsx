@@ -1,63 +1,111 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import {
-  departments,
-  users,
-  getDepartmentsBySchool,
-  getSchoolById,
-  addDepartment,
-  assignHOD,
-  removeHOD,
-} from '../data/universityData';
 import { Plus, Briefcase, Edit, Trash2, UserCheck, X, Calendar } from 'lucide-react';
 
 export default function DepartmentManagement() {
-  const { currentUser } = useAuth();
+  const { currentUser, token, refreshUser } = useAuth();
+  
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refresh, setRefresh] = useState(0);
+
   const [showAddDept, setShowAddDept] = useState(false);
   const [showHODModal, setShowHODModal] = useState<string | null>(null);
+  
   const [newDeptName, setNewDeptName] = useState('');
+  
+  // HOD Assignment state
   const [selectedUserId, setSelectedUserId] = useState('');
-  const [selectedYear, setSelectedYear] = useState<number>(1);
-  const [, forceUpdate] = useState(0);
+  const [selectedYears, setSelectedYears] = useState<number[]>([]);
+
+  // If Dean but no schoolId, maybe it was just assigned. Try refresh once.
+  useEffect(() => {
+    if (currentUser?.role === 'Dean' && !currentUser.schoolId) {
+      refreshUser();
+    }
+  }, [currentUser?.role, currentUser?.schoolId, refreshUser]);
+
+  useEffect(() => {
+    if (!token || currentUser?.role !== 'Dean') return;
+
+    const loadData = async () => {
+      try {
+        const auth = { Authorization: `Bearer ${token}` };
+        const [resDept, resUsers] = await Promise.all([
+          fetch(`/api/departments`, { headers: auth }),
+          fetch(`/api/users`, { headers: auth }),
+        ]);
+
+        if (resDept.ok) setDepartments(await resDept.json());
+        if (resUsers.ok) setUsers(await resUsers.json());
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, [token, currentUser, refresh]);
 
   if (!currentUser || currentUser.role !== 'Dean' || !currentUser.schoolId) {
     return <div className="p-8">Access denied</div>;
   }
 
-  const refresh = () => forceUpdate(n => n + 1);
-  const school = getSchoolById(currentUser.schoolId);
-  const schoolDepts = getDepartmentsBySchool(currentUser.schoolId);
-
-  const handleAddDept = () => {
+  const handleAddDept = async () => {
     if (!newDeptName.trim()) return;
-    addDepartment({
-      id: `dept_${Date.now()}`,
-      name: newDeptName.trim(),
-      schoolId: currentUser.schoolId!,
-    });
-    setNewDeptName('');
-    setShowAddDept(false);
-    refresh();
+    try {
+      await fetch('/api/departments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: newDeptName.trim(), schoolId: currentUser.schoolId })
+      });
+      setNewDeptName('');
+      setShowAddDept(false);
+      setRefresh(r => r+1);
+    } catch(err) {
+      console.error(err);
+    }
   };
 
-  const handleAssignHOD = (deptId: string) => {
+  const handleAssignHOD = async (deptId: string) => {
     if (!selectedUserId) return;
-    assignHOD(deptId, selectedUserId, selectedYear);
-    setShowHODModal(null);
-    setSelectedUserId('');
-    setSelectedYear(1);
-    refresh();
+    try {
+      await fetch(`/api/departments/${deptId}/hod`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ userId: selectedUserId, assignedYears: selectedYears })
+      });
+      setShowHODModal(null);
+      setSelectedUserId('');
+      setSelectedYears([]);
+      setRefresh(r => r+1);
+    } catch(err) {
+      console.error(err);
+    }
   };
 
-  const handleRemoveHOD = (deptId: string) => {
-    removeHOD(deptId);
-    refresh();
+  const handleRemoveHOD = async (deptId: string) => {
+    try {
+      await fetch(`/api/departments/${deptId}/hod`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setRefresh(r => r+1);
+    } catch(err) {
+      console.error(err);
+    }
   };
 
-  // Users eligible to be HOD
-  const availableUsers = users.filter(
-    u => u.role === 'HOD' || u.role === 'Faculty'
-  );
+  const toggleYear = (year: number) => {
+    setSelectedYears(prev => 
+      prev.includes(year) ? prev.filter(y => y !== year) : [...prev, year]
+    );
+  };
+
+  const availableUsers = users.filter(u => u.role === 'HOD' || u.role === 'Faculty');
+
+  if (loading) return <div className="p-8">Loading...</div>;
 
   return (
     <div className="p-8">
@@ -66,7 +114,7 @@ export default function DepartmentManagement() {
           <div>
             <h1 className="text-3xl font-bold text-slate-900 mb-2">Department Management</h1>
             <p className="text-slate-600">
-              {school?.code} — Manage departments and assign HODs
+              Manage departments and assign HODs
             </p>
           </div>
           <button
@@ -86,16 +134,16 @@ export default function DepartmentManagement() {
                 <tr className="border-b border-slate-200 bg-slate-50">
                   <th className="text-left px-6 py-4 text-sm font-semibold text-slate-900">Department</th>
                   <th className="text-left px-6 py-4 text-sm font-semibold text-slate-900">HOD</th>
-                  <th className="text-left px-6 py-4 text-sm font-semibold text-slate-900">Assigned Year</th>
+                  <th className="text-left px-6 py-4 text-sm font-semibold text-slate-900">Assigned Years</th>
                   <th className="text-left px-6 py-4 text-sm font-semibold text-slate-900">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {schoolDepts.map(dept => {
-                  const hod = dept.hodId ? users.find(u => u.id === dept.hodId) : null;
+                {departments.map(dept => {
+                  const hod = dept.hodId;
 
                   return (
-                    <tr key={dept.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={dept._id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="p-2 bg-blue-50 rounded-lg">
@@ -109,7 +157,7 @@ export default function DepartmentManagement() {
                           <div className="flex items-center gap-2">
                             <div className="w-7 h-7 bg-green-100 rounded-full flex items-center justify-center">
                               <span className="text-xs font-medium text-green-700">
-                                {hod.name.split(' ').map(n => n[0]).join('')}
+                                {hod.name.split(' ').map((n:any) => n[0]).join('')}
                               </span>
                             </div>
                             <div>
@@ -122,10 +170,19 @@ export default function DepartmentManagement() {
                         )}
                       </td>
                       <td className="px-6 py-4">
-                        {hod && hod.assignedYear ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+                        {hod && hod.assignedYears && hod.assignedYears.length > 0 ? (
+                          <div className="flex gap-1 flex-wrap">
+                            {hod.assignedYears.map((y:number) => (
+                              <span key={y} className="inline-flex items-center gap-1 px-2.5 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+                                <Calendar className="w-3 h-3" />
+                                Year {y}
+                              </span>
+                            ))}
+                          </div>
+                        ) : hod && (!hod.assignedYears || hod.assignedYears.length === 0) ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
                             <Calendar className="w-3 h-3" />
-                            Year {hod.assignedYear}
+                            All Years
                           </span>
                         ) : (
                           <span className="text-sm text-slate-400">—</span>
@@ -134,15 +191,19 @@ export default function DepartmentManagement() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => { setShowHODModal(dept.id); setSelectedUserId(''); setSelectedYear(1); }}
+                            onClick={() => { 
+                              setShowHODModal(dept._id); 
+                              setSelectedUserId(hod?._id || ''); 
+                              setSelectedYears(hod?.assignedYears || []); 
+                            }}
                             className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
                           >
                             {hod ? <Edit className="w-3 h-3" /> : <UserCheck className="w-3 h-3" />}
-                            {hod ? 'Change' : 'Assign'} HOD
+                            {hod ? 'Edit' : 'Assign'} HOD
                           </button>
                           {hod && (
                             <button
-                              onClick={() => handleRemoveHOD(dept.id)}
+                              onClick={() => handleRemoveHOD(dept._id)}
                               className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
                               title="Remove HOD"
                             >
@@ -155,7 +216,7 @@ export default function DepartmentManagement() {
                   );
                 })}
 
-                {schoolDepts.length === 0 && (
+                {departments.length === 0 && (
                   <tr>
                     <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
                       No departments yet. Click "Add Department" to create one.
@@ -204,9 +265,9 @@ export default function DepartmentManagement() {
         {/* Assign HOD Modal */}
         {showHODModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <div className="bg-white rounded-lg max-w-md w-full p-6 text-left">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-slate-900">Assign HOD</h2>
+                <h2 className="text-xl font-bold text-slate-900">Assign/Edit HOD</h2>
                 <button onClick={() => setShowHODModal(null)} className="p-1 hover:bg-slate-100 rounded">
                   <X className="w-5 h-5 text-slate-500" />
                 </button>
@@ -222,7 +283,7 @@ export default function DepartmentManagement() {
                   >
                     <option value="">Choose a user...</option>
                     {availableUsers.map(u => (
-                      <option key={u.id} value={u.id}>
+                      <option key={u._id} value={u._id}>
                         {u.name} ({u.role}) — {u.email}
                       </option>
                     ))}
@@ -230,19 +291,22 @@ export default function DepartmentManagement() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Assigned Year</label>
-                  <select
-                    value={selectedYear}
-                    onChange={e => setSelectedYear(parseInt(e.target.value))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                  >
-                    <option value={1}>Year 1</option>
-                    <option value={2}>Year 2</option>
-                    <option value={3}>Year 3</option>
-                    <option value={4}>Year 4</option>
-                  </select>
-                  <p className="text-xs text-slate-500 mt-1">
-                    The HOD will manage this year across all programs in the department.
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Assigned Years</label>
+                  <div className="flex flex-wrap gap-3">
+                    {[1, 2, 3, 4, 5].map(year => (
+                      <label key={year} className="flex items-center gap-2 cursor-pointer bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                          checked={selectedYears.includes(year)}
+                          onChange={() => toggleYear(year)}
+                        />
+                        <span className="text-sm font-medium text-slate-700">Year {year}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-2">
+                    The HOD will manage subjects spanning these years. Leave all blank to allow management across ALL years.
                   </p>
                 </div>
               </div>
@@ -256,7 +320,7 @@ export default function DepartmentManagement() {
                   disabled={!selectedUserId}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                 >
-                  Assign HOD
+                  Save HOD Scope
                 </button>
               </div>
             </div>

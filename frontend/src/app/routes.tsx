@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router";
+import { createBrowserRouter } from "react-router";
 import Root from "./Root";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -9,6 +9,8 @@ import UserManagement from "./pages/UserManagement";
 import SchoolManagement from "./pages/SchoolManagement";
 import DepartmentManagement from "./pages/DepartmentManagement";
 import TeacherAssignment from "./pages/TeacherAssignment";
+
+import Signup from "./pages/Signup";
 
 export const router = createBrowserRouter([
   {

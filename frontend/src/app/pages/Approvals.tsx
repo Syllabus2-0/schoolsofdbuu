@@ -1,94 +1,96 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import {
-  syllabi,
-  updateSyllabus,
-  addComment,
-  programs,
-  users,
-  type SyllabusStatus,
-} from '../data/universityData';
 import { CheckCircle, XCircle, MessageSquare, FileText } from 'lucide-react';
 
 export default function Approvals() {
-  const { currentUser } = useAuth();
-  const [selectedSyllabus, setSelectedSyllabus] = useState<string | null>(null);
+  const { currentUser, token } = useAuth();
+  
+  const [syllabi, setSyllabi] = useState<any[]>([]);
+  const [selectedSyllabusId, setSelectedSyllabusId] = useState<string | null>(null);
   const [commentText, setCommentText] = useState('');
+  
+  const [loading, setLoading] = useState(true);
+  const [refresh, setRefresh] = useState(0);
+
+  useEffect(() => {
+    if (!token || (currentUser?.role !== 'HOD' && currentUser?.role !== 'Dean')) return;
+
+    const fetchSyllabi = async () => {
+      try {
+        const auth = { Authorization: `Bearer ${token}` };
+        // The backend `getSyllabi` automatically scopes results to either the Dept or School
+        // based on the HOD/Dean role.
+        const res = await fetch('/api/syllabi', { headers: auth });
+        if (res.ok) {
+          setSyllabi(await res.json());
+        }
+      } catch (err) {
+        console.error("Failed to fetch syllabi for approval", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSyllabi();
+  }, [token, currentUser, refresh]);
 
   if (!currentUser || (currentUser.role !== 'HOD' && currentUser.role !== 'Dean')) {
     return <div className="p-8">Access denied</div>;
   }
 
   const pendingApprovals = syllabi.filter(s => {
-    if (currentUser.role === 'HOD') {
-      return s.status === 'Pending HOD Review';
-    }
-    if (currentUser.role === 'Dean') {
-      return s.status === 'Pending Dean Approval';
-    }
+    if (currentUser.role === 'HOD') return s.status === 'Pending HOD Review';
+    if (currentUser.role === 'Dean') return s.status === 'Pending Dean Approval';
     return false;
   });
 
-  const selectedSyllabusData = syllabi.find(s => s.id === selectedSyllabus);
-  const selectedProgram = selectedSyllabusData
-    ? programs.find(p => p.id === selectedSyllabusData.programId)
-    : null;
-  const faculty = selectedSyllabusData
-    ? users.find(u => u.id === selectedSyllabusData.facultyId)
-    : null;
+  const selectedSyllabusData = syllabi.find(s => s._id === selectedSyllabusId);
 
-  const handleApprove = () => {
-    if (!selectedSyllabus || !currentUser) return;
-
-    const syllabus = syllabi.find(s => s.id === selectedSyllabus);
-    if (!syllabus) return;
-
-    let newStatus: SyllabusStatus;
-    const updates: any = {};
-
-    if (currentUser.role === 'HOD') {
-      newStatus = 'Pending Dean Approval';
-      updates.hodSignature = currentUser.name;
-      updates.status = newStatus;
-    } else if (currentUser.role === 'Dean') {
-      newStatus = 'Published';
-      updates.deanSignature = currentUser.name;
-      updates.status = newStatus;
+  const handleApprove = async () => {
+    if (!selectedSyllabusId || !token) return;
+    try {
+      await fetch(`/api/syllabi/${selectedSyllabusId}/approve`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setSelectedSyllabusId(null);
+      setRefresh(r => r + 1);
+    } catch(err) {
+      console.error(err);
     }
-
-    updateSyllabus(selectedSyllabus, updates);
-    setSelectedSyllabus(null);
   };
 
-  const handleReject = () => {
-    if (!selectedSyllabus || !commentText) return;
-
-    updateSyllabus(selectedSyllabus, { status: 'Draft' });
-    addComment(selectedSyllabus, {
-      id: `comment-${Date.now()}`,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      text: `Rejected: ${commentText}`,
-      timestamp: new Date().toISOString(),
-    });
-
-    setCommentText('');
-    setSelectedSyllabus(null);
+  const handleReject = async () => {
+    if (!selectedSyllabusId || !commentText || !token) return;
+    try {
+      await fetch(`/api/syllabi/${selectedSyllabusId}/reject`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ comment: commentText })
+      });
+      setCommentText('');
+      setSelectedSyllabusId(null);
+      setRefresh(r => r + 1);
+    } catch(err) {
+      console.error(err);
+    }
   };
 
-  const handleComment = () => {
-    if (!selectedSyllabus || !commentText) return;
-
-    addComment(selectedSyllabus, {
-      id: `comment-${Date.now()}`,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      text: commentText,
-      timestamp: new Date().toISOString(),
-    });
-
-    setCommentText('');
+  const handleComment = async () => {
+    if (!selectedSyllabusId || !commentText || !token) return;
+    try {
+      await fetch(`/api/syllabi/${selectedSyllabusId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ text: commentText })
+      });
+      setCommentText('');
+      setRefresh(r => r + 1);
+    } catch(err) {
+      console.error(err);
+    }
   };
+
+  if (loading) return <div className="p-8">Loading approval queues...</div>;
 
   return (
     <div className="p-8">
@@ -115,21 +117,18 @@ export default function Approvals() {
                   </div>
                 ) : (
                   pendingApprovals.map(syllabus => {
-                    const program = programs.find(p => p.id === syllabus.programId);
-                    const facultyUser = users.find(u => u.id === syllabus.facultyId);
-
                     return (
                       <button
-                        key={syllabus.id}
-                        onClick={() => setSelectedSyllabus(syllabus.id)}
-                        className={`w-full p-4 text-left hover:bg-slate-50 transition-colors ${selectedSyllabus === syllabus.id ? 'bg-indigo-50' : ''
+                        key={syllabus._id}
+                        onClick={() => setSelectedSyllabusId(syllabus._id)}
+                        className={`w-full p-4 text-left hover:bg-slate-50 transition-colors ${selectedSyllabusId === syllabus._id ? 'bg-indigo-50' : ''
                           }`}
                       >
                         <div className="font-medium text-sm text-slate-900 mb-1">
-                          {program?.name}
+                          {syllabus.programId?.name || 'Unknown Program'}
                         </div>
                         <div className="text-xs text-slate-500">
-                          By {facultyUser?.name}
+                          By {syllabus.facultyId?.name || 'Unknown Faculty'}
                         </div>
                         <div className="text-xs text-slate-500 mt-1">
                           {new Date(syllabus.updatedAt).toLocaleDateString()}
@@ -154,14 +153,14 @@ export default function Approvals() {
                 {/* Header */}
                 <div className="bg-white rounded-lg border border-slate-200 p-6">
                   <h2 className="text-xl font-bold text-slate-900 mb-2">
-                    {selectedProgram?.name}
+                    {selectedSyllabusData.programId?.name}
                   </h2>
                   <div className="flex items-center gap-4 text-sm text-slate-600">
-                    <span>Submitted by {faculty?.name}</span>
+                    <span>Submitted by {selectedSyllabusData.facultyId?.name}</span>
                     <span>•</span>
-                    <span>{selectedProgram?.level} Program</span>
+                    <span>{selectedSyllabusData.programId?.level} Program</span>
                     <span>•</span>
-                    <span>{selectedProgram?.duration} months</span>
+                    <span>{selectedSyllabusData.programId?.duration} months</span>
                   </div>
 
                   <div className="mt-4 pt-4 border-t border-slate-200">
@@ -186,16 +185,16 @@ export default function Approvals() {
                 <div className="bg-white rounded-lg border border-slate-200 p-6">
                   <h3 className="font-semibold text-slate-900 mb-4">Course Details</h3>
 
-                  {selectedSyllabusData.semesters.map(semester => (
+                  {selectedSyllabusData.semesters?.map((semester:any) => (
                     <div key={semester.semesterNumber} className="mb-6">
                       <h4 className="text-sm font-medium text-slate-700 mb-3">
                         Semester {semester.semesterNumber}
                       </h4>
 
                       <div className="space-y-3">
-                        {semester.courses.map(course => (
+                        {semester.courses?.map((course:any, idx:number) => (
                           <div
-                            key={course.id}
+                            key={idx}
                             className="p-4 border border-slate-200 rounded-lg"
                           >
                             <div className="flex items-start justify-between">
@@ -228,11 +227,11 @@ export default function Approvals() {
                   <h3 className="font-semibold text-slate-900 mb-4">Comments</h3>
 
                   <div className="space-y-3 mb-4">
-                    {selectedSyllabusData.comments.length === 0 ? (
+                    {!selectedSyllabusData.comments || selectedSyllabusData.comments.length === 0 ? (
                       <p className="text-sm text-slate-500">No comments yet</p>
                     ) : (
-                      selectedSyllabusData.comments.map(comment => (
-                        <div key={comment.id} className="p-3 bg-slate-50 rounded-lg">
+                      selectedSyllabusData.comments.map((comment:any, idx:number) => (
+                        <div key={idx} className="p-3 bg-slate-50 rounded-lg">
                           <div className="flex items-start justify-between mb-1">
                             <span className="font-medium text-sm text-slate-900">
                               {comment.userName}

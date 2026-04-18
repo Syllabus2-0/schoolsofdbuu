@@ -1,22 +1,54 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { users, schools, departments } from '../data/universityData';
 import { Plus, Edit, Trash2, Users as UsersIcon } from 'lucide-react';
 
 export default function UserManagement() {
-  const { currentUser } = useAuth();
+  const { currentUser, token } = useAuth();
+  
+  const [users, setUsers] = useState<any[]>([]);
+  const [schools, setSchools] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
+  
+  const [loading, setLoading] = useState(true);
+  const [refresh, setRefresh] = useState(0);
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    if (!token || currentUser?.role !== 'SuperAdmin') return;
+
+    const fetchData = async () => {
+      try {
+        const auth = { Authorization: `Bearer ${token}` };
+        const [resUsers, resSchools, resDepts] = await Promise.all([
+          fetch('/api/users', { headers: auth }),
+          fetch('/api/schools'), // Public
+          fetch('/api/departments') // Public
+        ]);
+
+        if (resUsers.ok) setUsers(await resUsers.json());
+        if (resSchools.ok) setSchools(await resSchools.json());
+        if (resDepts.ok) setDepartments(await resDepts.json());
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [token, currentUser, refresh]);
 
   if (!currentUser || currentUser.role !== 'SuperAdmin') {
     return <div className="p-8">Access denied</div>;
   }
 
-  const roleColors = {
+  const roleColors: Record<string, string> = {
     SuperAdmin: 'bg-purple-100 text-purple-700',
     Dean: 'bg-blue-100 text-blue-700',
     HOD: 'bg-green-100 text-green-700',
     Faculty: 'bg-amber-100 text-amber-700',
   };
+
+  if (loading) return <div className="p-8">Loading users...</div>;
 
   return (
     <div className="p-8">
@@ -112,7 +144,7 @@ export default function UserManagement() {
                     Role
                   </th>
                   <th className="text-left px-6 py-4 text-sm font-semibold text-slate-900">
-                    Assignment
+                    Scope
                   </th>
                   <th className="text-left px-6 py-4 text-sm font-semibold text-slate-900">
                     Actions
@@ -121,13 +153,13 @@ export default function UserManagement() {
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {users.map(user => {
-                  const school = user.schoolId ? schools.find(s => s.id === user.schoolId) : null;
+                  const school = user.schoolId ? schools.find(s => s._id === user.schoolId) : null;
                   const dept = user.departmentId
-                    ? departments.find(d => d.id === user.departmentId)
+                    ? departments.find(d => d._id === user.departmentId)
                     : null;
 
                   return (
-                    <tr key={user.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={user._id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="font-medium text-slate-900">{user.name}</div>
                       </td>
@@ -136,7 +168,7 @@ export default function UserManagement() {
                       </td>
                       <td className="px-6 py-4">
                         <span
-                          className={`px-3 py-1 rounded-full text-xs font-medium ${roleColors[user.role]
+                          className={`px-3 py-1 rounded-full text-xs font-medium ${roleColors[user.role] || 'bg-slate-100 text-slate-700'
                             }`}
                         >
                           {user.role}
@@ -144,9 +176,9 @@ export default function UserManagement() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="text-sm text-slate-600">
-                          {school && <div>{school.code}</div>}
+                          {school && <div className="font-medium">{school.code}</div>}
                           {dept && <div className="text-xs text-slate-500">{dept.name}</div>}
-                          {!school && !dept && <span className="text-slate-400">Global</span>}
+                          {!school && !dept && <span className="text-slate-400 italic">Global</span>}
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -162,6 +194,13 @@ export default function UserManagement() {
                     </tr>
                   );
                 })}
+                {users.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-slate-500">
+                      No users found.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -169,84 +208,18 @@ export default function UserManagement() {
 
         {/* Add User Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg max-w-2xl w-full p-6">
               <h2 className="text-xl font-bold text-slate-900 mb-4">Add New User</h2>
-
-              <div className="space-y-4 mb-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Full Name
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      placeholder="Dr. John Doe"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      placeholder="john.doe@university.edu"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
-                  <select className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
-                    <option value="">Select role...</option>
-                    <option value="Dean">Dean</option>
-                    <option value="HOD">Head of Department</option>
-                    <option value="Faculty">Faculty Member</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">School</label>
-                  <select className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
-                    <option value="">Select school...</option>
-                    {schools.map(school => (
-                      <option key={school.id} value={school.id}>
-                        {school.code} - {school.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    Department (Optional)
-                  </label>
-                  <select className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
-                    <option value="">Select department...</option>
-                    {departments.map(dept => (
-                      <option key={dept.id} value={dept.id}>
-                        {dept.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div className="text-slate-600 mb-6 bg-blue-50 p-3 rounded text-sm">
+                Adding users through the admin portal relies on the backend route implementation. Please use the unified Signup page for testing or wire up the POST /api/users endpoint.
               </div>
-
               <div className="flex justify-end gap-4">
                 <button
                   onClick={() => setShowModal(false)}
                   className="px-6 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
                 >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                >
-                  Add User
+                  Close
                 </button>
               </div>
             </div>

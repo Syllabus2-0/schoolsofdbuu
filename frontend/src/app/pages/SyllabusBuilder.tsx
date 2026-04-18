@@ -1,61 +1,68 @@
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import {
-  getFacultyAssignments,
-  getSubjectById,
-  getProgramById,
-  getDepartmentById,
-  syllabi,
-  type Subject,
-  type DocumentFile,
-} from '../data/universityData';
 import { Plus, Trash2, Save, Upload, FileCheck, CheckCircle } from 'lucide-react';
 
 interface CourseEntry {
-  id: string;
+  id: string; // Used as key in frontend only
   code: string;
   name: string;
   credits: number;
   type: 'Core' | 'Elective' | 'Lab';
   description: string;
-  coDocument?: DocumentFile;
-  cloDocument?: DocumentFile;
+  coDocumentUrl?: string;
+  cloDocumentUrl?: string;
 }
 
 export default function SyllabusBuilder() {
-  const { currentUser } = useAuth();
+  const { currentUser, token } = useAuth();
   const navigate = useNavigate();
-  const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
+
+  const [assignedSubjects, setAssignedSubjects] = useState<any[]>([]);
+  const [selectedSubjectId, setSelectedSubjectId] = useState('');
   const [activeSemester, setActiveSemester] = useState(1);
   const [courses, setCourses] = useState<CourseEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!token || currentUser?.role !== 'Faculty') return;
+
+    const fetchAssignments = async () => {
+      try {
+        // Fetch real faculty assignments
+        const res = await fetch('/api/faculty-assignments', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          // The backend returns an array of assignment objects with populated subjectId and departmentId
+          setAssignedSubjects(data.filter((a: any) => a.userId?._id === currentUser._id || a.userId === currentUser._id));
+        }
+      } catch (err) {
+        console.error("Failed to fetch assignments", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAssignments();
+  }, [token, currentUser]);
 
   if (!currentUser || currentUser.role !== 'Faculty') {
     return <div className="p-8">Access denied</div>;
   }
 
-  // Get only subjects assigned to this faculty
-  const assignments = getFacultyAssignments(currentUser.id);
-  const assignedSubjects = assignments
-    .map(a => {
-      const subject = getSubjectById(a.subjectId);
-      const program = subject ? getProgramById(subject.programId) : null;
-      const dept = subject ? getDepartmentById(subject.departmentId) : null;
-      return { assignment: a, subject, program, dept };
-    })
-    .filter(x => x.subject && x.program);
+  const selectedAssignment = assignedSubjects.find(a => a.subjectId?._id === selectedSubjectId || a.subjectId === selectedSubjectId);
+  const selectedSubject = selectedAssignment?.subjectId;
+  const selectedProgram = selectedSubject?.programId;
+  // Fallback duration calculation if not provided by backend
+  const totalSemesters = selectedProgram?.duration ? Math.ceil(selectedProgram.duration / 6) : 8;
 
-  const handleSubjectSelect = (subjectId: string) => {
-    const found = assignedSubjects.find(x => x.subject?.id === subjectId);
-    if (found?.subject) {
-      setSelectedSubject(found.subject);
-      setCourses([]);
-      setActiveSemester(1);
-    }
+  const handleSubjectSelect = (id: string) => {
+    setSelectedSubjectId(id);
+    setCourses([]);
+    setActiveSemester(1);
   };
-
-  const selectedProgram = selectedSubject ? getProgramById(selectedSubject.programId) : null;
-  const totalSemesters = selectedProgram ? Math.ceil(selectedProgram.duration / 6) : 0;
 
   const addCourse = () => {
     setCourses([
@@ -79,42 +86,48 @@ export default function SyllabusBuilder() {
     setCourses(courses.map(c => (c.id === id ? { ...c, [field]: value } : c)));
   };
 
-  const handleFileUpload = (courseId: string, type: 'co' | 'clo', file: File) => {
-    const doc: DocumentFile = {
-      id: `doc_${Date.now()}`,
-      fileName: file.name,
-      uploadedBy: currentUser.id,
-      uploadedAt: new Date().toISOString(),
-    };
+  const handleFileUpload = async (courseId: string, type: 'co' | 'clo', file: File) => {
+    // In a real production app, we would upload to S3/Cloudinary.
+    // For now, we simulate a successful "upload" and store the "url"
+    // Since we don't have a specific file upload endpoint yet, we'll just mock it.
+    const mockUrl = `/uploads/${Date.now()}_${file.name}`;
     setCourses(courses.map(c => {
       if (c.id !== courseId) return c;
-      return type === 'co' ? { ...c, coDocument: doc } : { ...c, cloDocument: doc };
+      return type === 'co' ? { ...c, coDocumentUrl: mockUrl } : { ...c, cloDocumentUrl: mockUrl };
     }));
   };
 
-  const handleSubmit = () => {
-    if (!selectedSubject || !selectedProgram) return;
+  const handleSubmit = async () => {
+    if (!selectedSubject) return;
 
-    const newSyllabus = {
-      id: `syl-${Date.now()}`,
-      programId: selectedProgram.id,
-      subjectId: selectedSubject.id,
-      facultyId: currentUser.id,
-      status: 'Pending HOD Review' as const,
-      semesters: [
-        {
-          semesterNumber: activeSemester,
-          courses: courses,
+    try {
+      const response = await fetch('/api/syllabi', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
-      ],
-      comments: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+        body: JSON.stringify({
+          programId: selectedSubject.programId?._id || selectedSubject.programId,
+          subjectId: selectedSubject._id,
+          semesters: [
+            {
+              semesterNumber: activeSemester,
+              courses: courses.map(({ id, ...rest }) => rest), // Remove frontend-only ID
+            },
+          ],
+        }),
+      });
 
-    syllabi.push(newSyllabus);
-    navigate('/');
+      if (response.ok) {
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      console.error("Submission failed", err);
+    }
   };
+
+  if (loading) return <div className="p-8">Loading assignments...</div>;
 
   return (
     <div className="p-8">
@@ -131,13 +144,13 @@ export default function SyllabusBuilder() {
           </label>
           <select
             onChange={(e) => handleSubjectSelect(e.target.value)}
-            value={selectedSubject?.id || ''}
+            value={selectedSubjectId}
             className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
           >
             <option value="">Choose a subject...</option>
-            {assignedSubjects.map(({ subject, program, dept }) => (
-              <option key={subject!.id} value={subject!.id}>
-                {subject!.name} — {program!.name} ({program!.level}) — {dept?.name || ''}
+            {assignedSubjects.map((asn) => (
+              <option key={asn._id} value={asn.subjectId?._id}>
+                {asn.subjectId?.name || 'Unknown'} — {asn.programId?.name || ''} ({asn.programId?.level || ''})
               </option>
             ))}
           </select>
@@ -148,7 +161,7 @@ export default function SyllabusBuilder() {
             </p>
           )}
 
-          {selectedSubject && selectedProgram && (
+          {selectedSubject && (
             <div className="mt-4 p-4 bg-indigo-50 rounded-lg">
               <div className="grid grid-cols-4 gap-4 text-sm">
                 <div>
@@ -157,22 +170,22 @@ export default function SyllabusBuilder() {
                 </div>
                 <div>
                   <span className="text-slate-600">Program:</span>{' '}
-                  <span className="font-medium text-slate-900">{selectedProgram.name}</span>
+                  <span className="font-medium text-slate-900">{selectedSubject.programId?.name || 'Unknown'}</span>
                 </div>
                 <div>
                   <span className="text-slate-600">Level:</span>{' '}
-                  <span className="font-medium text-slate-900">{selectedProgram.level}</span>
+                  <span className="font-medium text-slate-900">{selectedSubject.programId?.level || ''}</span>
                 </div>
                 <div>
                   <span className="text-slate-600">Year:</span>{' '}
-                  <span className="font-medium text-slate-900">{selectedSubject.yearLabel}</span>
+                  <span className="font-medium text-slate-900">Year {selectedSubject.yearOrder || 1}</span>
                 </div>
               </div>
             </div>
           )}
         </div>
 
-        {selectedSubject && selectedProgram && (
+        {selectedSubject && (
           <>
             {/* Semester Tabs */}
             <div className="bg-white rounded-lg border border-slate-200 mb-6">
@@ -252,8 +265,6 @@ export default function SyllabusBuilder() {
     </div>
   );
 }
-
-// ─── Course Card with CO/CLO Upload ─────────────────────────
 
 function CourseCard({
   course,
@@ -338,18 +349,11 @@ function CourseCard({
 
       {/* CO & CLO Upload */}
       <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-        {/* CO Upload */}
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <FileCheck className={`w-3.5 h-3.5 ${course.coDocument ? 'text-emerald-600' : 'text-slate-400'}`} />
             <span className="text-sm font-medium text-slate-700">CO (Course Outcomes)</span>
-            {course.coDocument && <CheckCircle className="w-3 h-3 text-emerald-600" />}
+            {course.coDocumentUrl && <CheckCircle className="w-3 h-3 text-emerald-600" />}
           </div>
-          {course.coDocument ? (
-            <p className="text-xs text-emerald-600 mb-1 truncate">{course.coDocument.fileName}</p>
-          ) : (
-            <p className="text-xs text-slate-400 mb-1">Not uploaded</p>
-          )}
           <input ref={coRef} type="file" className="hidden" accept=".pdf,.doc,.docx"
             onChange={e => { const f = e.target.files?.[0]; if (f) onFileUpload(course.id, 'co', f); }}
           />
@@ -358,22 +362,15 @@ function CourseCard({
             className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors"
           >
             <Upload className="w-3 h-3" />
-            {course.coDocument ? 'Replace CO' : 'Upload CO'}
+            {course.coDocumentUrl ? 'Replace CO' : 'Upload CO'}
           </button>
         </div>
 
-        {/* CLO Upload */}
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <FileCheck className={`w-3.5 h-3.5 ${course.cloDocument ? 'text-emerald-600' : 'text-slate-400'}`} />
+           <div className="flex items-center gap-2 mb-1">
             <span className="text-sm font-medium text-slate-700">CLO (Learning Outcomes)</span>
-            {course.cloDocument && <CheckCircle className="w-3 h-3 text-emerald-600" />}
+            {course.cloDocumentUrl && <CheckCircle className="w-3 h-3 text-emerald-600" />}
           </div>
-          {course.cloDocument ? (
-            <p className="text-xs text-emerald-600 mb-1 truncate">{course.cloDocument.fileName}</p>
-          ) : (
-            <p className="text-xs text-slate-400 mb-1">Not uploaded</p>
-          )}
           <input ref={cloRef} type="file" className="hidden" accept=".pdf,.doc,.docx"
             onChange={e => { const f = e.target.files?.[0]; if (f) onFileUpload(course.id, 'clo', f); }}
           />
@@ -382,7 +379,7 @@ function CourseCard({
             className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors"
           >
             <Upload className="w-3 h-3" />
-            {course.cloDocument ? 'Replace CLO' : 'Upload CLO'}
+            {course.cloDocumentUrl ? 'Replace CLO' : 'Upload CLO'}
           </button>
         </div>
       </div>

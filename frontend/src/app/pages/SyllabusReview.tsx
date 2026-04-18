@@ -63,7 +63,7 @@ export default function SyllabusReview() {
     if (isAuthority && subjectId) {
        let newStatus: any = 'Published';
        if (currentUser.role === 'HOD') newStatus = 'Pending Dean Approval';
-       if (currentUser.role === 'Dean') newStatus = 'Pending Admin Approval';
+       if (currentUser.role === 'Dean') newStatus = 'Published';
        if (currentUser.role === 'SuperAdmin') newStatus = 'Published';
        
        updateSyllabus(subjectId, { status: newStatus });

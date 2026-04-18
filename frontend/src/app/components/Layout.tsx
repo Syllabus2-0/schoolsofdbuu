@@ -94,13 +94,22 @@ export default function Layout({ children }: LayoutProps) {
               )}
 
               {currentUser.role === 'Dean' && (
-                <Link
-                  to="/departments"
-                  className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-2"
-                >
-                  <Building2 className="w-4 h-4" />
-                  Departments
-                </Link>
+                <>
+                  <Link
+                    to="/departments"
+                    className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <Building2 className="w-4 h-4" />
+                    Assign HOD
+                  </Link>
+                  <Link
+                    to="/teacher-assignment"
+                    className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-2"
+                  >
+                    <Users className="w-4 h-4" />
+                    Assign Faculty
+                  </Link>
+                </>
               )}
 
               {currentUser.role === 'HOD' && (
@@ -123,7 +132,7 @@ export default function Layout({ children }: LayoutProps) {
                 </Link>
               )}
 
-              {(currentUser.role === 'HOD' || currentUser.role === 'Dean' || currentUser.role === 'SuperAdmin') && (
+              {(currentUser.role === 'HOD' || currentUser.role === 'Dean') && (
                 <Link
                   to="/approvals"
                   className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-2"

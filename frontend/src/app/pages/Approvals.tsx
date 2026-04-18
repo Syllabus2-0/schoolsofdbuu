@@ -28,9 +28,6 @@ export default function Approvals() {
     if (currentUser.role === 'Dean') {
       return s.status === 'Pending Dean Approval';
     }
-    if (currentUser.role === 'SuperAdmin') {
-      return s.status === 'Pending Admin Approval';
-    }
     return false;
   });
 

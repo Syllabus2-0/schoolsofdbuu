@@ -12,6 +12,7 @@ import {
   removeTeacherAssignment,
   uploadPOPSO,
   getPOPSODocuments,
+  getDepartmentsBySchool,
   type ProgramLevel,
   type Subject,
   type FacultyAssignment,
@@ -36,22 +37,27 @@ export default function TeacherAssignment() {
   const { currentUser } = useAuth();
   const [showAssignModal, setShowAssignModal] = useState<Subject | null>(null);
   const [selectedFacultyId, setSelectedFacultyId] = useState('');
+  const [facultySearch, setFacultySearch] = useState('');
   const [, forceUpdate] = useState(0);
   const poInputRef = useRef<HTMLInputElement>(null);
   const psoInputRef = useRef<HTMLInputElement>(null);
 
-  if (!currentUser || currentUser.role !== 'HOD' || !currentUser.departmentId) {
+  const [selectedDeptId, setSelectedDeptId] = useState<string>('');
+
+  if (!currentUser || (currentUser.role !== 'HOD' && currentUser.role !== 'Dean')) {
     return <div className="p-8">Access denied</div>;
   }
 
   const refresh = () => forceUpdate(n => n + 1);
-  const dept = getDepartmentById(currentUser.departmentId);
-  const hodYear = currentUser.assignedYear;
+  const isDean = currentUser.role === 'Dean';
+  const activeDeptId = isDean ? selectedDeptId : currentUser.departmentId;
+  const dept = activeDeptId ? getDepartmentById(activeDeptId) : null;
+  const hodYear = !isDean ? currentUser.assignedYear : undefined;
+  
+  const schoolDepts = isDean && currentUser.schoolId ? getDepartmentsBySchool(currentUser.schoolId) : [];
 
-  if (!dept) return <div className="p-8">Department not found</div>;
-
-  const groupedPrograms = getProgramsByDepartmentGrouped(currentUser.departmentId);
-  const poposDocs = hodYear ? getPOPSODocuments(currentUser.departmentId, hodYear) : [];
+  const groupedPrograms = activeDeptId ? getProgramsByDepartmentGrouped(activeDeptId) : {};
+  const poposDocs = hodYear && activeDeptId ? getPOPSODocuments(activeDeptId, hodYear) : [];
   const poDoc = poposDocs.find(d => d.type === 'PO');
   const psoDoc = poposDocs.find(d => d.type === 'PSO');
 
@@ -70,6 +76,7 @@ export default function TeacherAssignment() {
     assignTeacher(assignment);
     setShowAssignModal(null);
     setSelectedFacultyId('');
+    setFacultySearch('');
     refresh();
   };
 
@@ -88,7 +95,7 @@ export default function TeacherAssignment() {
       type,
       fileName: file.name,
       uploadedBy: currentUser.id,
-      departmentId: currentUser.departmentId!,
+      departmentId: activeDeptId!,
       yearOrder: hodYear,
       uploadedAt: new Date().toISOString(),
     });
@@ -99,13 +106,38 @@ export default function TeacherAssignment() {
     <div className="p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Teacher Assignment</h1>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">Assign Faculty</h1>
           <p className="text-slate-600">
-            {dept.name} — {hodYear ? `Year ${hodYear}` : 'All Years'} — Assign teachers to subjects
+            {dept ? `${dept.name} ` : 'Select a department to assign teachers.'}
+            {hodYear ? `— Year ${hodYear} ` : dept ? '— All Years ' : ''}
           </p>
         </div>
 
+        {isDean && (
+          <div className="bg-white rounded-lg border border-slate-200 p-6 mb-8">
+            <h2 className="text-lg font-semibold text-slate-900 mb-2">Select Department</h2>
+            <select
+              value={selectedDeptId}
+              onChange={e => setSelectedDeptId(e.target.value)}
+              className="w-full max-w-md px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+            >
+              <option value="">Choose a department...</option>
+              {schoolDepts.map(d => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {!activeDeptId ? (
+          <div className="bg-white rounded-lg border border-slate-200 p-12 text-center">
+            <BookOpen className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+            <p className="text-slate-500">Please select a department to proceed</p>
+          </div>
+        ) : (
+          <>
         {/* PO/PSO Upload Section */}
+        {!isDean && (
         <div className="bg-white rounded-lg border border-slate-200 p-6 mb-8">
           <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
             <Upload className="w-5 h-5 text-indigo-600" />
@@ -201,6 +233,7 @@ export default function TeacherAssignment() {
             </div>
           </div>
         </div>
+        )}
 
         {/* Subject-Teacher Assignment Table */}
         {levelOrder
@@ -284,7 +317,11 @@ export default function TeacherAssignment() {
                                     <td className="px-6 py-3">
                                       <div className="flex items-center gap-1">
                                         <button
-                                          onClick={() => { setShowAssignModal(subject); setSelectedFacultyId(''); }}
+                                          onClick={() => { 
+                                            setShowAssignModal(subject); 
+                                            setSelectedFacultyId(''); 
+                                            setFacultySearch('');
+                                          }}
                                           className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
                                         >
                                           <UserCheck className="w-3 h-3" />
@@ -314,6 +351,8 @@ export default function TeacherAssignment() {
               </div>
             );
           })}
+          </>
+        )}
 
         {/* Assign Teacher Modal */}
         {showAssignModal && (
@@ -321,7 +360,7 @@ export default function TeacherAssignment() {
             <div className="bg-white rounded-lg max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold text-slate-900">Assign Teacher</h2>
-                <button onClick={() => setShowAssignModal(null)} className="p-1 hover:bg-slate-100 rounded">
+                <button onClick={() => { setShowAssignModal(null); setFacultySearch(''); }} className="p-1 hover:bg-slate-100 rounded">
                   <X className="w-5 h-5 text-slate-500" />
                 </button>
               </div>
@@ -333,20 +372,47 @@ export default function TeacherAssignment() {
 
               <div className="mb-6">
                 <label className="block text-sm font-medium text-slate-700 mb-1">Select Faculty</label>
-                <select
-                  value={selectedFacultyId}
-                  onChange={e => setSelectedFacultyId(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                >
-                  <option value="">Choose a faculty member...</option>
-                  {facultyUsers.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} — {u.email}</option>
-                  ))}
-                </select>
+                <div className="relative mb-2">
+                  <input
+                    type="text"
+                    placeholder="Search by name or email..."
+                    value={facultySearch}
+                    onChange={e => setFacultySearch(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-sm"
+                  />
+                </div>
+                <div className="border border-slate-200 rounded-lg bg-white overflow-y-auto" style={{ maxHeight: '200px' }}>
+                  {facultyUsers.filter(u => 
+                    u.name.toLowerCase().includes(facultySearch.toLowerCase()) || 
+                    u.email.toLowerCase().includes(facultySearch.toLowerCase())
+                  ).length === 0 ? (
+                    <div className="p-3 text-sm text-center text-slate-500">No faculty found</div>
+                  ) : (
+                    facultyUsers.filter(u => 
+                      u.name.toLowerCase().includes(facultySearch.toLowerCase()) || 
+                      u.email.toLowerCase().includes(facultySearch.toLowerCase())
+                    ).map(u => (
+                      <button
+                        key={u.id}
+                        onClick={() => setSelectedFacultyId(u.id)}
+                        className={`w-full text-left px-3 py-2 text-sm border-b border-slate-100 transition-colors last:border-0 ${
+                          selectedFacultyId === u.id 
+                            ? 'bg-indigo-50 border-l-4 border-l-indigo-600 text-indigo-900' 
+                            : 'hover:bg-slate-50 text-slate-700 border-l-4 border-l-transparent'
+                        }`}
+                      >
+                        <div className="font-medium truncate">{u.name}</div>
+                        <div className={`text-xs truncate ${selectedFacultyId === u.id ? 'text-indigo-600' : 'text-slate-500'}`}>
+                          {u.email}
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
               </div>
 
               <div className="flex justify-end gap-3">
-                <button onClick={() => setShowAssignModal(null)} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
+                <button onClick={() => { setShowAssignModal(null); setFacultySearch(''); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
                   Cancel
                 </button>
                 <button

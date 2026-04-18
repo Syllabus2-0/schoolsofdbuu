@@ -1,6 +1,6 @@
 export type UserRole = 'SuperAdmin' | 'Dean' | 'HOD' | 'Faculty';
 export type ProgramLevel = 'UG' | 'PG' | 'Ph.D';
-export type SyllabusStatus = 'Draft' | 'Pending HOD Review' | 'Pending Dean Approval' | 'Pending Admin Approval' | 'Published';
+export type SyllabusStatus = 'Draft' | 'Pending HOD Review' | 'Pending Dean Approval' | 'Published';
 
 export interface IntakeStats {
   year: number;
@@ -688,6 +688,10 @@ export function removeDean(schoolId: string): void {
 
 export function addDepartment(dept: Department): void {
   departments.push(dept);
+}
+
+export function addProgram(program: Program): void {
+  programs.push(program);
 }
 
 export function assignHOD(deptId: string, userId: string, year: number): void {

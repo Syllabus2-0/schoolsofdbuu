@@ -13,22 +13,60 @@ import {
   X,
 } from 'lucide-react';
 
+interface Department {
+  _id: string;
+  name: string;
+}
+
+interface Program {
+  _id: string;
+  name: string;
+  level: string;
+}
+
+interface Subject {
+  _id: string;
+  name: string;
+  programId: string;
+  yearLabel: string;
+  yearOrder: number;
+}
+
+interface Assignment {
+  _id: string;
+  facultyId: string | { _id: string; name: string; email: string };
+  subjectId: string | { _id: string; name: string };
+}
+
+interface PopsoDoc {
+  _id: string;
+  type: 'PO' | 'PSO';
+  fileName: string;
+  uploadedAt: string;
+}
+
+interface FacultyUser {
+  _id: string;
+  name: string;
+  email: string;
+}
+
 const levelOrder = ['UG', 'PG', 'Ph.D'];
 const levelLabels: Record<string, string> = { UG: 'Undergraduate', PG: 'Postgraduate', 'Ph.D': 'Doctorate' };
 
 export default function TeacherAssignment() {
   const { currentUser, token } = useAuth();
   
-  const [dept, setDept] = useState<any>(null);
-  const [programs, setPrograms] = useState<any[]>([]);
-  const [subjects, setSubjects] = useState<any[]>([]);
-  const [assignments, setAssignments] = useState<any[]>([]);
-  const [popsoDocs, setPopsoDocs] = useState<any[]>([]);
-  const [facultyUsers, setFacultyUsers] = useState<any[]>([]);
+  const [dept, setDept] = useState<Department | null>(null);
+  const [programs, setPrograms] = useState<Program[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [popsoDocs, setPopsoDocs] = useState<PopsoDoc[]>([]);
+  const [facultyUsers, setFacultyUsers] = useState<FacultyUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
 
-  const [showAssignModal, setShowAssignModal] = useState<any | null>(null);
+  const [showAssignModal, setShowAssignModal] = useState<Subject | null>(null);
   const [selectedFacultyId, setSelectedFacultyId] = useState('');
   
   const poInputRef = useRef<HTMLInputElement>(null);
@@ -79,7 +117,7 @@ export default function TeacherAssignment() {
   const poDoc = popsoDocs.find(d => d.type === 'PO');
   const psoDoc = popsoDocs.find(d => d.type === 'PSO');
 
-  const handleAssign = async (subject: any) => {
+  const handleAssign = async (subject: Subject) => {
     if (!selectedFacultyId) return;
     try {
       await fetch('/api/faculty-assignments', {
@@ -131,7 +169,7 @@ export default function TeacherAssignment() {
   };
 
   // Group programs by Level
-  const groupedPrograms: Record<string, any[]> = {};
+  const groupedPrograms: Record<string, Program[]> = {};
   programs.forEach(p => {
     if (!groupedPrograms[p.level]) groupedPrograms[p.level] = [];
     groupedPrograms[p.level].push(p);
@@ -178,10 +216,12 @@ export default function TeacherAssignment() {
                 <p className="text-xs text-slate-500">Not uploaded yet</p>
               )}
               <input
+                id="po-upload"
                 ref={poInputRef}
                 type="file"
                 className="hidden"
                 accept=".pdf,.doc,.docx"
+                title="Upload PO (Program Outcomes) document"
                 onChange={e => {
                   const file = e.target.files?.[0];
                   if (file) handleFileUpload('PO', file);
@@ -221,10 +261,12 @@ export default function TeacherAssignment() {
                 <p className="text-xs text-slate-500">Not uploaded yet</p>
               )}
               <input
+                id="pso-upload"
                 ref={psoInputRef}
                 type="file"
                 className="hidden"
                 accept=".pdf,.doc,.docx"
+                title="Upload PSO (Program Specific Outcomes) document"
                 onChange={e => {
                   const file = e.target.files?.[0];
                   if (file) handleFileUpload('PSO', file);
@@ -296,11 +338,15 @@ export default function TeacherAssignment() {
                         <tbody className="divide-y divide-slate-100">
                           {sortedYearGroups.map(([yearLabel, yearSubjects]) =>
                             yearSubjects.map(subject => {
-                              const asn = assignments.find(a => a.subjectId?._id === subject._id || a.subjectId === subject._id);
+                              const asn = assignments.find(a => {
+                                const aid = typeof a.subjectId === 'object' ? a.subjectId?._id : a.subjectId;
+                                return aid === subject._id;
+                              });
                               
                               let teacher = null;
                               if (asn) {
-                                teacher = facultyUsers.find(u => u._id === (asn.facultyId?._id || asn.facultyId));
+                                const fid = typeof asn.facultyId === 'object' ? asn.facultyId?._id : asn.facultyId;
+                                teacher = facultyUsers.find(u => u._id === fid);
                               }
 
                               return (
@@ -322,7 +368,7 @@ export default function TeacherAssignment() {
                                       <div className="flex items-center gap-2">
                                         <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
                                           <span className="text-xs font-medium text-green-700">
-                                            {teacher.name.split(' ').map((n:any) => n[0]).join('')}
+                                            {teacher.name.split(' ').map((n: string) => n[0]).join('')}
                                           </span>
                                         </div>
                                         <span className="text-sm text-slate-700">{teacher.name}</span>
@@ -371,7 +417,11 @@ export default function TeacherAssignment() {
             <div className="bg-white rounded-lg max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold text-slate-900">Assign Teacher</h2>
-                <button onClick={() => setShowAssignModal(null)} className="p-1 hover:bg-slate-100 rounded">
+                <button 
+                  title="Close modal"
+                  onClick={() => setShowAssignModal(null)} 
+                  className="p-1 hover:bg-slate-100 rounded"
+                >
                   <X className="w-5 h-5 text-slate-500" />
                 </button>
               </div>
@@ -382,8 +432,10 @@ export default function TeacherAssignment() {
               </div>
 
               <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Select Faculty</label>
+                <label htmlFor="faculty-select" className="block text-sm font-medium text-slate-700 mb-1">Select Faculty</label>
                 <select
+                  id="faculty-select"
+                  title="Select a faculty member for assignment"
                   value={selectedFacultyId}
                   onChange={e => setSelectedFacultyId(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"

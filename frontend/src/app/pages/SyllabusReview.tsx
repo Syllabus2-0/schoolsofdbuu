@@ -2,11 +2,10 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { CheckCircle, XCircle, MessageSquare, ArrowLeft } from 'lucide-react';
-import { updateSyllabus, addComment } from '../data/universityData';
 
 export default function SyllabusReview() {
   const { subjectId } = useParams();
-  const { currentUser } = useAuth();
+  const { currentUser, token } = useAuth();
   const navigate = useNavigate();
   const [commentText, setCommentText] = useState('');
 
@@ -59,29 +58,35 @@ export default function SyllabusReview() {
   // Check if actually dean or super admin. 
   // HOD -> Dean -> SuperAdmin -> Published
 
-  const handleApprove = () => {
-    if (isAuthority && subjectId) {
-       let newStatus: any = 'Published';
-       if (currentUser.role === 'HOD') newStatus = 'Pending Dean Approval';
-       if (currentUser.role === 'Dean') newStatus = 'Pending Admin Approval';
-       if (currentUser.role === 'SuperAdmin') newStatus = 'Published';
-       
-       updateSyllabus(subjectId, { status: newStatus });
-       navigate('/approvals');
+  const handleApprove = async () => {
+    if (isAuthority && subjectId && token) {
+        try {
+          await fetch(`/api/syllabi/${subjectId}/approve`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          navigate('/approvals');
+        } catch(err) {
+          console.error(err);
+        }
     }
   };
 
-  const handleReject = () => {
-    if (isAuthority && subjectId && commentText) {
-       updateSyllabus(subjectId, { status: 'Draft' });
-       addComment(subjectId, {
-         id: `comment-${Date.now()}`,
-         userId: currentUser.id,
-         userName: currentUser.name,
-         text: `Rejected: ${commentText}`,
-         timestamp: new Date().toISOString()
-       });
-       navigate('/approvals');
+  const handleReject = async () => {
+    if (isAuthority && subjectId && commentText && token) {
+        try {
+          await fetch(`/api/syllabi/${subjectId}/reject`, {
+            method: 'PUT',
+            headers: { 
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}` 
+            },
+            body: JSON.stringify({ comment: commentText })
+          });
+          navigate('/approvals');
+        } catch(err) {
+          console.error(err);
+        }
     }
   };
 
@@ -116,6 +121,7 @@ export default function SyllabusReview() {
           <div className="grid grid-cols-2 mb-8 border border-[#444]">
              <div className="bg-[#964B00] border-r border-[#444] p-4 flex items-center">
                 <input 
+                  title="Course Title"
                   value={courseDetails.title} 
                   onChange={e => setCourseDetails({...courseDetails, title: e.target.value})}
                   className={`font-bold text-xl text-white ${inputStyles}`} 
@@ -132,16 +138,16 @@ export default function SyllabusReview() {
              <div className="bg-[#804000] border-r-4 border-[#222] p-3"></div>
              <div className="grid grid-cols-4 bg-[#804000]">
                 <div className="flex items-center justify-center border-r border-[#444] p-3">
-                  <input value={courseDetails.L} onChange={e => setCourseDetails({...courseDetails, L: e.target.value})} className={`font-bold text-center text-white ${inputStyles}`} />
+                  <input title="L (Lecture) value" value={courseDetails.L} onChange={e => setCourseDetails({...courseDetails, L: e.target.value})} className={`font-bold text-center text-white ${inputStyles}`} />
                 </div>
                 <div className="flex items-center justify-center border-r border-[#444] p-3">
-                  <input value={courseDetails.T} onChange={e => setCourseDetails({...courseDetails, T: e.target.value})} className={`font-bold text-center text-white ${inputStyles}`} />
+                  <input title="T (Tutorial) value" value={courseDetails.T} onChange={e => setCourseDetails({...courseDetails, T: e.target.value})} className={`font-bold text-center text-white ${inputStyles}`} />
                 </div>
                 <div className="flex items-center justify-center border-r border-[#444] p-3">
-                  <input value={courseDetails.P} onChange={e => setCourseDetails({...courseDetails, P: e.target.value})} className={`font-bold text-center text-white ${inputStyles}`} />
+                  <input title="P (Practical) value" value={courseDetails.P} onChange={e => setCourseDetails({...courseDetails, P: e.target.value})} className={`font-bold text-center text-white ${inputStyles}`} />
                 </div>
                 <div className="flex items-center justify-center p-3">
-                  <input value={courseDetails.C} onChange={e => setCourseDetails({...courseDetails, C: e.target.value})} className={`font-bold text-center text-white ${inputStyles}`} />
+                  <input title="C (Credits) value" value={courseDetails.C} onChange={e => setCourseDetails({...courseDetails, C: e.target.value})} className={`font-bold text-center text-white ${inputStyles}`} />
                 </div>
              </div>
           </div>
@@ -160,7 +166,8 @@ export default function SyllabusReview() {
                    <div className="w-1/3 text-slate-300 font-medium pt-1">{row.label}</div>
                    <div className="w-2/3">
                       <input 
-                         value={(courseDetails as any)[row.key]}
+                         title={row.label}
+                         value={(courseDetails as Record<string, string>)[row.key]}
                          onChange={e => setCourseDetails({...courseDetails, [row.key]: e.target.value})}
                          className={`text-white font-semibold ${inputStyles}`}
                       />
@@ -181,6 +188,7 @@ export default function SyllabusReview() {
                   <div key={i} className="flex border-t border-[#3a3a3a] py-4">
                     <div className="px-6 w-32 shrink-0 flex items-start text-white">
                       <input 
+                        title="CLO Code"
                         value={item.code} 
                         onChange={(e) => {
                           const newArr = [...clos]; newArr[i].code = e.target.value; setClos(newArr);
@@ -190,6 +198,7 @@ export default function SyllabusReview() {
                     </div>
                     <div className="px-4 flex-1 text-white">
                       <textarea 
+                        title="CLO Description"
                         value={item.desc}
                         onChange={(e) => {
                           const newArr = [...clos]; newArr[i].desc = e.target.value; setClos(newArr);
@@ -212,6 +221,7 @@ export default function SyllabusReview() {
                   <div key={i} className="flex border-t border-[#3a3a3a] py-4">
                     <div className="px-6 w-32 shrink-0 flex items-start text-white">
                       <input 
+                        title="CO Code"
                         value={item.code} 
                         onChange={(e) => {
                           const newArr = [...cos]; newArr[i].code = e.target.value; setCos(newArr);
@@ -221,6 +231,7 @@ export default function SyllabusReview() {
                     </div>
                     <div className="px-4 flex-1 text-white">
                       <textarea 
+                        title="CO Description"
                         value={item.desc}
                         onChange={(e) => {
                           const newArr = [...cos]; newArr[i].desc = e.target.value; setCos(newArr);
@@ -242,6 +253,7 @@ export default function SyllabusReview() {
              {units.map((unit, i) => (
                <div key={i} className="group transition-opacity">
                  <input
+                   title="Unit Title"
                    value={unit.title}
                    onChange={e => {
                      const newU = [...units]; newU[i].title = e.target.value; setUnits(newU);
@@ -249,6 +261,7 @@ export default function SyllabusReview() {
                    className={`text-[#FFBC00] font-semibold mb-1 text-lg ${inputStyles}`}
                  />
                  <textarea
+                   title="Unit Description"
                    value={unit.desc}
                    onChange={e => {
                      const newU = [...units]; newU[i].desc = e.target.value; setUnits(newU);
@@ -266,6 +279,7 @@ export default function SyllabusReview() {
                    <li key={i} className="flex items-start">
                      <span className="text-slate-300 mr-2 mt-1">•</span>
                      <input
+                       title="Reference text"
                        value={refString}
                        onChange={e => {
                          const newR = [...references]; newR[i] = e.target.value; setReferences(newR);
@@ -318,6 +332,7 @@ export default function SyllabusReview() {
                       <td className="border border-white/20 p-3 text-sm font-semibold">{index + 1}</td>
                       <td className="border border-white/20 p-3 w-28">
                          <input 
+                            title="Course Outcome Code"
                             value={row.co} 
                             onChange={e => {
                                const arr = [...matrix]; arr[index].co = e.target.value; setMatrix(arr);
@@ -328,6 +343,7 @@ export default function SyllabusReview() {
                       {row.po.map((val, i) => (
                         <td key={`v-po${i}`} className="border border-white/20 p-1">
                           <input 
+                             title={`PO${i+1} mapping value`}
                              value={val}
                              onChange={e => {
                                const arr = [...matrix]; arr[index].po[i] = e.target.value; setMatrix(arr);
@@ -339,6 +355,7 @@ export default function SyllabusReview() {
                       {row.pso.map((val, i) => (
                         <td key={`v-pso${i}`} className="border border-white/20 p-1">
                           <input 
+                             title={`PSO${i+1} mapping value`}
                              value={val}
                              onChange={e => {
                                const arr = [...matrix]; arr[index].pso[i] = e.target.value; setMatrix(arr);
@@ -381,6 +398,7 @@ export default function SyllabusReview() {
                    <div className="relative flex-1 max-w-xl">
                       <MessageSquare className="w-5 h-5 text-slate-500 absolute left-3 top-3.5" />
                       <input 
+                         title="Required comment for rejection"
                          type="text" 
                          value={commentText}
                          onChange={(e) => setCommentText(e.target.value)}

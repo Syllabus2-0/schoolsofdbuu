@@ -2,15 +2,34 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Plus, Edit, Trash2, Users as UsersIcon } from 'lucide-react';
 
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+  schoolId?: string;
+  departmentId?: string;
+}
+
+interface School {
+  _id: string;
+  name: string;
+  code: string;
+}
+
+interface Department {
+  _id: string;
+  name: string;
+}
+
 export default function UserManagement() {
   const { currentUser, token } = useAuth();
   
-  const [users, setUsers] = useState<any[]>([]);
-  const [schools, setSchools] = useState<any[]>([]);
-  const [departments, setDepartments] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   
   const [loading, setLoading] = useState(true);
-  const [refresh, setRefresh] = useState(0);
   const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
@@ -35,7 +54,7 @@ export default function UserManagement() {
       }
     };
     fetchData();
-  }, [token, currentUser, refresh]);
+  }, [token, currentUser]);
 
   if (!currentUser || currentUser.role !== 'SuperAdmin') {
     return <div className="p-8">Access denied</div>;
@@ -183,10 +202,16 @@ export default function UserManagement() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <button className="p-2 text-slate-600 hover:bg-slate-100 rounded transition-colors">
+                          <button 
+                            title="Edit User"
+                            className="p-2 text-slate-600 hover:bg-slate-100 rounded transition-colors"
+                          >
                             <Edit className="w-4 h-4" />
                           </button>
-                          <button className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors">
+                          <button 
+                            title="Delete User"
+                            className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors"
+                          >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>

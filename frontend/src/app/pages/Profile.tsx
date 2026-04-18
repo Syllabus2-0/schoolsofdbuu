@@ -12,6 +12,48 @@ import {
   FileText,
 } from 'lucide-react';
 
+interface School {
+  _id: string;
+  name: string;
+  code: string;
+}
+
+interface Department {
+  _id: string;
+  name: string;
+}
+
+interface Assignment {
+  _id: string;
+  subjectId?: {
+    name: string;
+    yearOrder: number;
+  };
+  departmentId?: {
+    name: string;
+  };
+  userId?: string | {
+    _id: string;
+  };
+}
+
+interface PopsoDoc {
+  _id: string;
+  documentType: string;
+  fileName: string;
+  fileUrl: string;
+}
+
+interface UserProfile {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+  schoolId?: string;
+  departmentId?: string;
+  assignedYears?: number[];
+}
+
 const roleLabels: Record<string, string> = {
   SuperAdmin: 'Super Administrator',
   Dean: 'Dean',
@@ -29,10 +71,10 @@ const roleColors: Record<string, { bg: string; text: string; border: string }> =
 export default function Profile() {
   const { currentUser, token } = useAuth();
   
-  const [school, setSchool] = useState<any>(null);
-  const [department, setDepartment] = useState<any>(null);
-  const [assignments, setAssignments] = useState<any[]>([]);
-  const [popso, setPopso] = useState<any[]>([]);
+  const [school, setSchool] = useState<School | null>(null);
+  const [department, setDepartment] = useState<Department | null>(null);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [popso, setPopso] = useState<PopsoDoc[]>([]);
 
   useEffect(() => {
     if (!currentUser || !token) return;
@@ -53,8 +95,15 @@ export default function Profile() {
 
         if (currentUser.role === 'Faculty') {
           fetch(`/api/faculty-assignments`, { headers: auth })
-            .then(r => r.ok && r.json())
-            .then(data => setAssignments(data.filter((a:any) => a.userId?._id === currentUser._id || a.userId === currentUser._id)))
+            .then(r => r.ok && r.json() as Promise<Assignment[]>)
+            .then(data => {
+              if (data) {
+                setAssignments(data.filter((a: Assignment) => {
+                  const uid = typeof a.userId === 'object' ? a.userId?._id : a.userId;
+                  return uid === currentUser._id;
+                }));
+              }
+            })
             .catch(console.error);
         }
 
@@ -97,7 +146,7 @@ export default function Profile() {
             <div className="flex items-end gap-6 -mt-12 mb-6">
               <div className="w-24 h-24 rounded-full bg-white border-4 border-white shadow-lg flex items-center justify-center bg-gradient-to-br from-indigo-100 to-purple-100">
                 <span className="text-2xl font-bold text-indigo-700">
-                  {currentUser.name.split(' ').map((n:any) => n[0]).join('')}
+                  {currentUser.name.split(' ').map((n: string) => n[0]).join('')}
                 </span>
               </div>
               <div className="pb-1">
@@ -133,7 +182,7 @@ export default function Profile() {
         {/* Role-specific sections */}
         {currentUser.role === 'SuperAdmin' && <AdminProfileSection />}
         {currentUser.role === 'Dean' && school && <DeanProfileSection school={school} />}
-        {currentUser.role === 'HOD' && department && <HODProfileSection user={currentUser} dept={department} popso={popso} />}
+        {currentUser.role === 'HOD' && department && <HODProfileSection user={currentUser as UserProfile} dept={department} popso={popso} />}
         {currentUser.role === 'Faculty' && <FacultyProfileSection assignments={assignments} />}
       </div>
     </div>
@@ -178,7 +227,7 @@ function AdminProfileSection() {
   );
 }
 
-function DeanProfileSection({ school }: { school: any }) {
+function DeanProfileSection({ school }: { school: School }) {
   return (
     <div className="bg-white rounded-lg border border-slate-200 p-6">
       <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
@@ -205,7 +254,7 @@ function DeanProfileSection({ school }: { school: any }) {
   );
 }
 
-function HODProfileSection({ user, dept, popso }: { user: any, dept: any, popso: any[] }) {
+function HODProfileSection({ user, dept, popso }: { user: UserProfile, dept: Department, popso: PopsoDoc[] }) {
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg border border-slate-200 p-6">
@@ -249,7 +298,7 @@ function HODProfileSection({ user, dept, popso }: { user: any, dept: any, popso:
   );
 }
 
-function FacultyProfileSection({ assignments }: { assignments: any[] }) {
+function FacultyProfileSection({ assignments }: { assignments: Assignment[] }) {
   return (
     <div className="bg-white rounded-lg border border-slate-200 p-6">
       <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">

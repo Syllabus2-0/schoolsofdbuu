@@ -3,6 +3,17 @@ import { useNavigate } from "react-router";
 import { useAuth } from "../context/AuthContext";
 import type { UserRole } from "../data/types";
 
+interface School {
+  _id: string;
+  name: string;
+  code: string;
+}
+
+interface Department {
+  _id: string;
+  name: string;
+}
+
 export default function Signup() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -10,8 +21,8 @@ export default function Signup() {
   const [role, setRole] = useState<UserRole>("Faculty");
   
   // Realtime config arrays
-  const [schools, setSchools] = useState<any[]>([]);
-  const [departments, setDepartments] = useState<any[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   
   // Role specific scopes
   const [schoolId, setSchoolId] = useState("");
@@ -63,8 +74,9 @@ export default function Signup() {
       if (setToken) setToken(data.token);
       localStorage.setItem("token", data.token);
       navigate("/");
-    } catch (err: any) {
-      setError(err.message || "Signup error");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Signup error";
+      setError(errorMessage);
     }
   };
 
@@ -88,6 +100,7 @@ export default function Signup() {
 
         <div className="space-y-4">
           <input
+            title="Full name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Full name"
@@ -95,6 +108,7 @@ export default function Signup() {
             required
           />
           <input
+            title="Email address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email"
@@ -103,6 +117,7 @@ export default function Signup() {
             required
           />
           <input
+            title="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Password"
@@ -111,10 +126,12 @@ export default function Signup() {
             required
           />
 
-          <label className="block text-sm font-medium text-slate-700">
+          <label htmlFor="role-select" className="block text-sm font-medium text-slate-700">
             Role
           </label>
           <select
+            id="role-select"
+            title="Select user role"
             value={role}
             onChange={(e) => setRole(e.target.value as UserRole)}
             className="w-full px-4 py-3 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none"
@@ -128,10 +145,12 @@ export default function Signup() {
           {/* Conditional Dean Scoping */}
           {role === 'Dean' && (
             <div className="pt-2 animate-fade-in">
-              <label className="block text-sm font-medium text-slate-700 mb-1">
+              <label htmlFor="school-select" className="block text-sm font-medium text-slate-700 mb-1">
                 Select School
               </label>
               <select
+                id="school-select"
+                title="Select your School"
                 value={schoolId}
                 onChange={(e) => setSchoolId(e.target.value)}
                 required
@@ -149,10 +168,12 @@ export default function Signup() {
           {role === 'HOD' && (
             <div className="pt-2 animate-fade-in space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label htmlFor="department-select" className="block text-sm font-medium text-slate-700 mb-1">
                   Select Department
                 </label>
                 <select
+                  id="department-select"
+                  title="Select your Department"
                   value={departmentId}
                   onChange={(e) => setDepartmentId(e.target.value)}
                   required

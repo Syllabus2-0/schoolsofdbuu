@@ -3,9 +3,34 @@ import { useAuth } from '../context/AuthContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingUp } from 'lucide-react';
 
+interface ChartDataEntry {
+  year: string;
+  students: number;
+}
+
+interface IntakeStat {
+  year: string;
+  count: number;
+}
+
+interface ProgramAnalytics {
+  id: string;
+  name: string;
+  school: string;
+  department: string;
+  level: string;
+  intakeStats: IntakeStat[];
+}
+
+interface AnalyticsData {
+  programs: ProgramAnalytics[];
+  chartData: ChartDataEntry[];
+  totalPrograms: number;
+}
+
 export default function Analytics() {
   const { currentUser, token } = useAuth();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -36,7 +61,7 @@ export default function Analytics() {
   const { programs, chartData, totalPrograms } = data;
 
   // Calculate total intake
-  const totalIntake = chartData.reduce((sum: number, d: any) => sum + d.students, 0);
+  const totalIntake = chartData.reduce((sum: number, d: ChartDataEntry) => sum + d.students, 0);
 
   // Calculate growth rate (compare last 2 available years if possible)
   let growthRate = "0.0";
@@ -126,7 +151,7 @@ export default function Analytics() {
           </h2>
 
           <div className="space-y-4">
-            {programs.map((program: any) => {
+            {programs.map((program: ProgramAnalytics) => {
               const stats = program.intakeStats || [];
               const lastCount = stats.length > 0 ? stats[stats.length - 1].count : 0;
               

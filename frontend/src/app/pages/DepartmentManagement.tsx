@@ -2,11 +2,27 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Plus, Briefcase, Edit, Trash2, UserCheck, X, Calendar } from 'lucide-react';
 
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+  schoolId?: string;
+  departmentId?: string;
+  assignedYears?: number[];
+}
+
+interface Department {
+  _id: string;
+  name: string;
+  hodId?: User;
+}
+
 export default function DepartmentManagement() {
   const { currentUser, token, refreshUser } = useAuth();
   
-  const [departments, setDepartments] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
 
@@ -157,7 +173,7 @@ export default function DepartmentManagement() {
                           <div className="flex items-center gap-2">
                             <div className="w-7 h-7 bg-green-100 rounded-full flex items-center justify-center">
                               <span className="text-xs font-medium text-green-700">
-                                {hod.name.split(' ').map((n:any) => n[0]).join('')}
+                                {hod.name.split(' ').map((n: string) => n[0]).join('')}
                               </span>
                             </div>
                             <div>
@@ -234,14 +250,19 @@ export default function DepartmentManagement() {
             <div className="bg-white rounded-lg max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold text-slate-900">Add New Department</h2>
-                <button onClick={() => setShowAddDept(false)} className="p-1 hover:bg-slate-100 rounded">
+                <button 
+                  title="Close modal"
+                  onClick={() => setShowAddDept(false)} 
+                  className="p-1 hover:bg-slate-100 rounded"
+                >
                   <X className="w-5 h-5 text-slate-500" />
                 </button>
               </div>
 
               <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Department Name</label>
+                <label htmlFor="dept-name" className="block text-sm font-medium text-slate-700 mb-1">Department Name</label>
                 <input
+                  id="dept-name"
                   type="text"
                   value={newDeptName}
                   onChange={e => setNewDeptName(e.target.value)}
@@ -268,15 +289,21 @@ export default function DepartmentManagement() {
             <div className="bg-white rounded-lg max-w-md w-full p-6 text-left">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold text-slate-900">Assign/Edit HOD</h2>
-                <button onClick={() => setShowHODModal(null)} className="p-1 hover:bg-slate-100 rounded">
+                <button 
+                  title="Close modal"
+                  onClick={() => setShowHODModal(null)} 
+                  className="p-1 hover:bg-slate-100 rounded"
+                >
                   <X className="w-5 h-5 text-slate-500" />
                 </button>
               </div>
 
               <div className="space-y-4 mb-6">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Select User</label>
+                  <label htmlFor="user-select" className="block text-sm font-medium text-slate-700 mb-1">Select User</label>
                   <select
+                    id="user-select"
+                    title="Select a user to assign as HOD"
                     value={selectedUserId}
                     onChange={e => setSelectedUserId(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"

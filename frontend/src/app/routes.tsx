@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router";
 import Root from "./Root";
 import Login from "./pages/Login";
+import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import SyllabusBuilder from "./pages/SyllabusBuilder";
 import Approvals from "./pages/Approvals";
@@ -14,17 +15,15 @@ import SyllabusReview from "./pages/SyllabusReview";
 import Notifications from "./pages/Notifications";
 import Profile from "./pages/Profile";
 
-import Signup from "./pages/Signup";
-
 export const router = createBrowserRouter([
   {
     path: "/login",
     Component: Login,
   },
-  // {
-  //   path: "/signup",
-  //   Component: Signup,
-  // },
+  {
+    path: "/signup",
+    Component: Signup,
+  },
   {
     path: "/",
     Component: Root,

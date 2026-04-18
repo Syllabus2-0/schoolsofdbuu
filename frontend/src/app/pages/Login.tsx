@@ -25,8 +25,9 @@ export default function Login() {
       if (setToken) setToken(data.token);
       localStorage.setItem("token", data.token);
       navigate("/");
-    } catch (err: any) {
-      setError(err.message || "Login error");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Login error";
+      setError(errorMessage);
     }
   };
 
@@ -43,19 +44,23 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
-          {error && <div className="text-red-600">{error}</div>}
+          {error && <div className="text-red-600 font-medium text-sm">{error}</div>}
           <input
+            title="Email address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email"
-            className="w-full px-4 py-3 border rounded"
+            className="w-full px-4 py-3 border rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            required
           />
           <input
+            title="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Password"
             type="password"
-            className="w-full px-4 py-3 border rounded"
+            className="w-full px-4 py-3 border rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            required
           />
           <button
             type="submit"

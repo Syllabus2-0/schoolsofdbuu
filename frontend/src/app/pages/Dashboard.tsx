@@ -3,10 +3,33 @@ import { Link } from 'react-router';
 import { FileText, Users, Building, Briefcase, BookOpen, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
+interface Syllabus {
+  _id: string;
+  status: string;
+  programId?: {
+    name: string;
+  };
+}
+
+interface DashboardStats {
+  totalSchools?: number;
+  totalDepartments?: number;
+  totalPrograms?: number;
+  totalSyllabi?: number;
+  pendingApproval?: number;
+  publishedSyllabi?: number;
+  pendingReview?: number;
+  facultyMembers?: number;
+  mySyllabi?: number;
+  inDraft?: number;
+  underReview?: number;
+  published?: number;
+}
+
 export default function Dashboard() {
   const { currentUser, token } = useAuth();
-  const [stats, setStats] = useState<any>(null);
-  const [recentSyllabi, setRecentSyllabi] = useState<any[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentSyllabi, setRecentSyllabi] = useState<Syllabus[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,9 +52,9 @@ export default function Dashboard() {
           const dataSyllabi = await resSyllabi.json();
           let filteredSyllabi = [];
           if (currentUser.role === 'HOD') {
-            filteredSyllabi = dataSyllabi.filter((s:any) => s.status === 'Pending HOD Review');
+            filteredSyllabi = dataSyllabi.filter((s: Syllabus) => s.status === 'Pending HOD Review');
           } else if (currentUser.role === 'Dean') {
-            filteredSyllabi = dataSyllabi.filter((s:any) => s.status === 'Pending Dean Approval');
+            filteredSyllabi = dataSyllabi.filter((s: Syllabus) => s.status === 'Pending Dean Approval');
           } else if (currentUser.role === 'Faculty') {
             filteredSyllabi = dataSyllabi;
           }

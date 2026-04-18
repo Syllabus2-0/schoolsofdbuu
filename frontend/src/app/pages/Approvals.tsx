@@ -2,10 +2,49 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { CheckCircle, XCircle, MessageSquare, FileText } from "lucide-react";
 
+interface Comment {
+  userName: string;
+  text: string;
+  timestamp: string;
+}
+
+interface Course {
+  code: string;
+  name: string;
+  description: string;
+  credits: number;
+  type: string;
+}
+
+interface Semester {
+  semesterNumber: number;
+  courses: Course[];
+}
+
+interface Syllabus {
+  _id: string;
+  status: string;
+  updatedAt: string;
+  programId?: {
+    _id: string;
+    name: string;
+    level: string;
+    duration: number;
+  };
+  facultyId?: {
+    _id: string;
+    name: string;
+  };
+  hodSignature?: string;
+  deanSignature?: string;
+  semesters?: Semester[];
+  comments?: Comment[];
+}
+
 export default function Approvals() {
   const { currentUser, token } = useAuth();
 
-  const [syllabi, setSyllabi] = useState<any[]>([]);
+  const [syllabi, setSyllabi] = useState<Syllabus[]>([]);
   const [selectedSyllabusId, setSelectedSyllabusId] = useState<string | null>(
     null,
   );
@@ -211,14 +250,14 @@ export default function Approvals() {
                     Course Details
                   </h3>
 
-                  {selectedSyllabusData.semesters?.map((semester: any) => (
+                  {selectedSyllabusData.semesters?.map((semester: Semester) => (
                     <div key={semester.semesterNumber} className="mb-6">
                       <h4 className="text-sm font-medium text-slate-700 mb-3">
                         Semester {semester.semesterNumber}
                       </h4>
 
                       <div className="space-y-3">
-                        {semester.courses?.map((course: any, idx: number) => (
+                        {semester.courses?.map((course: Course, idx: number) => (
                           <div
                             key={idx}
                             className="p-4 border border-slate-200 rounded-lg"
@@ -260,7 +299,7 @@ export default function Approvals() {
                       <p className="text-sm text-slate-500">No comments yet</p>
                     ) : (
                       selectedSyllabusData.comments.map(
-                        (comment: any, idx: number) => (
+                        (comment: Comment, idx: number) => (
                           <div key={idx} className="p-3 bg-slate-50 rounded-lg">
                             <div className="flex items-start justify-between mb-1">
                               <span className="font-medium text-sm text-slate-900">
@@ -282,6 +321,7 @@ export default function Approvals() {
                   <div className="flex gap-2">
                     <input
                       type="text"
+                      title="Add a comment"
                       value={commentText}
                       onChange={(e) => setCommentText(e.target.value)}
                       placeholder="Add a comment..."

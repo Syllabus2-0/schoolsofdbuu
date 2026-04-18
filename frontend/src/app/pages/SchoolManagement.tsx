@@ -2,11 +2,32 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Plus, Building, Edit, Trash2, UserCheck, X } from 'lucide-react';
 
+interface User {
+  _id: string;
+  id?: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+interface School {
+  _id: string;
+  name: string;
+  code: string;
+  deanId?: User;
+}
+
+interface Department {
+  _id: string;
+  name: string;
+  schoolId?: string | { _id: string };
+}
+
 export default function SchoolManagement() {
   const { currentUser, token } = useAuth();
-  const [schools, setSchools] = useState<any[]>([]);
-  const [departments, setDepartments] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   
   const [showAddSchool, setShowAddSchool] = useState(false);
   const [showDeanModal, setShowDeanModal] = useState<string | null>(null);
@@ -119,7 +140,10 @@ export default function SchoolManagement() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {schools.map(school => {
             const dean = school.deanId;
-            const deptCount = departments.filter(d => d.schoolId?._id === school._id || d.schoolId === school._id).length;
+            const deptCount = departments.filter(d => {
+              const sid = typeof d.schoolId === 'object' ? d.schoolId?._id : d.schoolId;
+              return sid === school._id;
+            }).length;
 
             return (
               <div key={school._id} className="bg-white rounded-lg border border-slate-200 p-6 hover:shadow-md transition-shadow">
@@ -146,7 +170,7 @@ export default function SchoolManagement() {
                       <div className="flex items-center gap-2">
                         <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                           <span className="text-xs font-medium text-blue-700">
-                            {dean.name?.split(' ').map((n:any) => n[0]).join('') || '?'}
+                            {dean.name?.split(' ').map((n: string) => n[0]).join('') || '?'}
                           </span>
                         </div>
                         <div>
@@ -192,15 +216,20 @@ export default function SchoolManagement() {
             <div className="bg-white rounded-lg max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold text-slate-900">Add New School</h2>
-                <button onClick={() => setShowAddSchool(false)} className="p-1 hover:bg-slate-100 rounded">
+                <button 
+                  title="Close modal"
+                  onClick={() => setShowAddSchool(false)} 
+                  className="p-1 hover:bg-slate-100 rounded"
+                >
                   <X className="w-5 h-5 text-slate-500" />
                 </button>
               </div>
 
               <div className="space-y-4 mb-6">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">School Name</label>
+                  <label htmlFor="school-name" className="block text-sm font-medium text-slate-700 mb-1">School Name</label>
                   <input
+                    id="school-name"
                     type="text"
                     value={newSchoolName}
                     onChange={e => setNewSchoolName(e.target.value)}
@@ -209,8 +238,9 @@ export default function SchoolManagement() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">School Code</label>
+                  <label htmlFor="school-code" className="block text-sm font-medium text-slate-700 mb-1">School Code</label>
                   <input
+                    id="school-code"
                     type="text"
                     value={newSchoolCode}
                     onChange={e => setNewSchoolCode(e.target.value)}
@@ -238,14 +268,20 @@ export default function SchoolManagement() {
             <div className="bg-white rounded-lg max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold text-slate-900">Assign Dean</h2>
-                <button onClick={() => setShowDeanModal(null)} className="p-1 hover:bg-slate-100 rounded">
+                <button 
+                  title="Close modal"
+                  onClick={() => setShowDeanModal(null)} 
+                  className="p-1 hover:bg-slate-100 rounded"
+                >
                   <X className="w-5 h-5 text-slate-500" />
                 </button>
               </div>
 
               <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Select User</label>
+                <label htmlFor="dean-select" className="block text-sm font-medium text-slate-700 mb-1">Select User</label>
                 <select
+                  id="dean-select"
+                  title="Select a user to assign as Dean"
                   value={selectedDeanId}
                   onChange={e => setSelectedDeanId(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"

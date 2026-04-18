@@ -8,15 +8,19 @@ exports.getUsers = async (req, res) => {
     if (req.query.schoolId) filter.schoolId = req.query.schoolId;
     if (req.query.departmentId) filter.departmentId = req.query.departmentId;
 
-    // Scope for Dean: users in their school
+    // Scope for Dean: users in their school OR users with no school (for recruitment)
     if (req.user.role === "Dean" && req.user.schoolId) {
-      filter.schoolId = req.user.schoolId;
+      filter.$or = [
+        { schoolId: req.user.schoolId },
+        { schoolId: { $exists: false } },
+        { schoolId: null },
+      ];
     }
-    // Scope for HOD: users in their department
+    // Scope for HOD: users in their department OR any Faculty in their school
     if (req.user.role === "HOD" && req.user.departmentId) {
       filter.$or = [
         { departmentId: req.user.departmentId },
-        { role: "Faculty", departmentId: req.user.departmentId },
+        { role: "Faculty", schoolId: req.user.schoolId },
       ];
     }
 

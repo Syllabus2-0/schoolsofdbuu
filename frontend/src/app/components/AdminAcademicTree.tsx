@@ -73,16 +73,22 @@ export default function AdminAcademicTree() {
   const assignedYears = currentUser.assignedYears || (currentUser.assignedYear ? [currentUser.assignedYear] : []);
 
   // ── Role-based visibility ─────────────────
-  const visibleSchools = schools; // Scoping is mostly handled by backend, but we can refine here if needed
+  let visibleSchools = schools;
+  if (currentUser.role === 'Dean' && currentUser.schoolId) {
+    visibleSchools = schools.filter(s => s._id === currentUser.schoolId || s.id === currentUser.schoolId);
+  }
 
   // ──────────────────────────────────────────
   // HOD View — Department → UG/PG/PhD → Programs → Assigned Years → Subjects
   // ──────────────────────────────────────────
   if (isHOD && currentUser.departmentId) {
-    const dept = departments.find(d => d._id === currentUser.departmentId || d.id === currentUser.departmentId);
+    const dept = departments.find(d => (d._id || d.id)?.toString() === currentUser.departmentId.toString());
     if (!dept) return <div className="p-4 text-xs text-slate-500">Department not found.</div>;
 
-    const deptPrograms = programs.filter(p => p.departmentId?._id === dept._id || p.departmentId === dept._id);
+    const deptPrograms = programs.filter(p => {
+      const did = p.departmentId?._id || p.departmentId;
+      return did?.toString() === dept?._id?.toString();
+    });
 
     return (
       <div className="space-y-1">
@@ -127,16 +133,25 @@ export default function AdminAcademicTree() {
                     <div className="ml-5 space-y-1 border-l border-slate-200 pl-2">
                       {progs.map(program => {
                         const progKey = `hod-${program._id}`;
-                        const progSubjects = subjects.filter(s => s.programId?._id === program._id || s.programId === program._id);
-                        
-                        // Group by year
-                        const yearMap = new Map();
-                        progSubjects.forEach(s => {
-                          const yl = s.yearLabel || `Year ${s.yearOrder}`;
-                          if (!yearMap.has(yl)) yearMap.set(yl, { label: yl, order: s.yearOrder, subjects: [] });
-                          yearMap.get(yl).subjects.push(s);
+                        const progSubjects = subjects.filter(s => {
+                          const pid = s.programId?._id || s.programId;
+                          return pid?.toString() === program._id?.toString();
                         });
-                        const yearGroups = Array.from(yearMap.values()).sort((a,b) => a.order - b.order);
+                        
+                        // Group by years based on duration
+                        const totalYears = Math.floor(program.duration / 12) || 1;
+                        const yearGroups = [];
+                        for (let y = 1; y <= totalYears; y++) {
+                          // Filter by assignedYears if HOD
+                          if (isHOD && currentUser.assignedYears?.length > 0 && !currentUser.assignedYears.includes(y)) {
+                            continue;
+                          }
+                          const yl = `Year ${y}`;
+                          const yearSubjects = progSubjects.filter(s => 
+                            s.yearLabel === yl || s.yearOrder === y || (!s.yearLabel && !s.yearOrder && y === 1)
+                          );
+                          yearGroups.push({ label: yl, order: y, subjects: yearSubjects });
+                        }
 
                         return (
                           <div key={program._id} className="space-y-1">
@@ -145,8 +160,11 @@ export default function AdminAcademicTree() {
                               className="w-full flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-50 rounded-lg transition-colors text-left"
                             >
                               <ChevronIcon open={isOpen(progKey)} size={3.5} />
-                              <BookOpen className="w-3.5 h-3.5 text-green-600" />
-                              <span className="text-xs font-medium text-slate-900 truncate">{program.name}</span>
+                              <BookOpen className="w-3.5 h-3.5 text-green-600 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs font-medium text-slate-900 truncate">{program.name}</div>
+                                <div className="text-[10px] text-slate-500 font-medium">{Math.floor(program.duration / 12)} Years</div>
+                              </div>
                             </button>
 
                             {isOpen(progKey) && (
@@ -185,7 +203,10 @@ export default function AdminAcademicTree() {
       </div>
 
       {visibleSchools.map(school => {
-        const schoolDepts = departments.filter(d => (d.schoolId?._id || d.schoolId) === (school._id || school.id));
+        const schoolDepts = departments.filter(d => {
+          const sid = d.schoolId?._id || d.schoolId;
+          return sid?.toString() === (school._id || school.id)?.toString();
+        });
         const schoolKey = `sch-${school._id || school.id}`;
 
         return (
@@ -206,7 +227,10 @@ export default function AdminAcademicTree() {
               <div className="ml-5 space-y-1 border-l border-slate-200 pl-2">
                 {schoolDepts.map(dept => {
                   const deptKey = `dept-${dept._id}`;
-                  const deptPrograms = programs.filter(p => (p.departmentId?._id || p.departmentId) === dept._id);
+                  const deptPrograms = programs.filter(p => {
+                    const did = p.departmentId?._id || p.departmentId;
+                    return did?.toString() === dept._id?.toString();
+                  });
 
                   return (
                     <div key={dept._id} className="space-y-1">
@@ -249,15 +273,21 @@ export default function AdminAcademicTree() {
                                     <div className="ml-5 space-y-1 border-l border-slate-200 pl-2">
                                       {progs.map(program => {
                                         const progKey = `prog-${program._id}`;
-                                        const progSubjects = subjects.filter(s => (s.programId?._id || s.programId) === program._id);
-                                        
-                                        const yearMap = new Map();
-                                        progSubjects.forEach(s => {
-                                          const yl = s.yearLabel || `Year ${s.yearOrder}`;
-                                          if (!yearMap.has(yl)) yearMap.set(yl, { label: yl, order: s.yearOrder, subjects: [] });
-                                          yearMap.get(yl).subjects.push(s);
+                                        const progSubjects = subjects.filter(s => {
+                                          const pid = s.programId?._id || s.programId;
+                                          return pid?.toString() === program._id?.toString();
                                         });
-                                        const yearGroups = Array.from(yearMap.values()).sort((a,b) => a.order - b.order);
+                                        
+                                        // Group by years based on duration
+                                        const totalYears = Math.floor(program.duration / 12) || 1;
+                                        const yearGroups = [];
+                                        for (let y = 1; y <= totalYears; y++) {
+                                          const yl = `Year ${y}`;
+                                          const yearSubjects = progSubjects.filter(s => 
+                                            s.yearLabel === yl || s.yearOrder === y || (!s.yearLabel && !s.yearOrder && y === 1)
+                                          );
+                                          yearGroups.push({ label: yl, order: y, subjects: yearSubjects });
+                                        }
 
                                         return (
                                           <div key={program._id} className="space-y-1">
@@ -267,7 +297,10 @@ export default function AdminAcademicTree() {
                                             >
                                               <ChevronIcon open={isOpen(progKey)} size={3} />
                                               <BookOpen className="w-3 h-3 text-green-600" />
-                                              <span className="text-xs font-medium text-slate-900 truncate">{program.name}</span>
+                                              <div className="flex-1 min-w-0">
+                                                <div className="text-xs font-medium text-slate-900 truncate">{program.name}</div>
+                                                <div className="text-[10px] text-slate-500 font-medium">{Math.floor(program.duration / 12)} Years</div>
+                                              </div>
                                             </button>
 
                                             {isOpen(progKey) && (

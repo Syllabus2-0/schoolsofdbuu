@@ -69,22 +69,47 @@ export default function TeacherAssignment() {
   const [showAssignModal, setShowAssignModal] = useState<Subject | null>(null);
   const [selectedFacultyId, setSelectedFacultyId] = useState('');
 
+  const [schoolDepts, setSchoolDepts] = useState<Department[]>([]);
+  const [selectedDeptId, setSelectedDeptId] = useState('');
+  const [facultySearchTerm, setFacultySearchTerm] = useState('');
+
   const poInputRef = useRef<HTMLInputElement>(null);
   const psoInputRef = useRef<HTMLInputElement>(null);
 
+  const isDean = currentUser?.role === 'Dean';
+  const isHOD = currentUser?.role === 'HOD';
+  const activeDeptId = isDean ? selectedDeptId : currentUser?.departmentId;
+
+  // Load departments if Dean
   useEffect(() => {
-    if (!token || !currentUser || currentUser.role !== 'HOD' || !currentUser.departmentId) return;
+    if (!token || !currentUser || !isDean) return;
+    const fetchDepts = async () => {
+      try {
+        const res = await fetch('/api/departments', { headers: { Authorization: `Bearer ${token}` } });
+        if (res.ok) setSchoolDepts(await res.json());
+      } catch (err) { console.error(err); }
+    };
+    fetchDepts();
+  }, [token, currentUser, isDean]);
+
+  useEffect(() => {
+    if (!token || !currentUser || !activeDeptId) {
+       setLoading(false);
+       return;
+    }
+
+    setLoading(true);
 
     const loadData = async () => {
       try {
         const auth = { Authorization: `Bearer ${token}` };
 
         const [resDept, resProgs, resSubjs, resAsn, resPopso, resUsers] = await Promise.all([
-          fetch(`/api/departments/${currentUser.departmentId}`, { headers: auth }),
-          fetch(`/api/programs?departmentId=${currentUser.departmentId}`, { headers: auth }),
-          fetch(`/api/subjects?departmentId=${currentUser.departmentId}`, { headers: auth }),
-          fetch(`/api/faculty-assignments?departmentId=${currentUser.departmentId}`, { headers: auth }),
-          fetch(`/api/popso?departmentId=${currentUser.departmentId}`, { headers: auth }),
+          fetch(`/api/departments/${activeDeptId}`, { headers: auth }),
+          fetch(`/api/programs?departmentId=${activeDeptId}`, { headers: auth }),
+          fetch(`/api/subjects?departmentId=${activeDeptId}`, { headers: auth }),
+          fetch(`/api/faculty-assignments?departmentId=${activeDeptId}`, { headers: auth }),
+          fetch(`/api/popso?departmentId=${activeDeptId}`, { headers: auth }),
           fetch(`/api/users?role=Faculty`, { headers: auth }),
         ]);
 
@@ -102,14 +127,13 @@ export default function TeacherAssignment() {
       }
     };
     loadData();
-  }, [token, currentUser, refresh]);
+  }, [token, currentUser, activeDeptId, refresh]);
 
-  if (!currentUser || currentUser.role !== 'HOD' || !currentUser.departmentId) {
+  if (!currentUser || (currentUser.role !== 'HOD' && currentUser.role !== 'Dean')) {
     return <div className="p-8">Access denied</div>;
   }
 
-  if (loading) return <div className="p-8">Loading...</div>;
-  if (!dept) return <div className="p-8">Department not found</div>;
+  if (loading && activeDeptId) return <div className="p-8">Loading...</div>;
 
   const hodYears = currentUser.assignedYears || [];
   const displayYearsString = hodYears.length > 0 ? `Years: ${hodYears.join(', ')}` : 'All Years';
@@ -181,16 +205,40 @@ export default function TeacherAssignment() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900 mb-2">Assign Faculty</h1>
           <p className="text-slate-600">
-            {dept.name} — {displayYearsString} — Assign teachers to subjects
+            {activeDeptId && dept ? `${dept.name} — ${displayYearsString} — Assign teachers to subjects` : 'Assign teachers to subjects'}
           </p>
         </div>
 
-        {/* PO/PSO Upload Section */}
-        <div className="bg-white rounded-lg border border-slate-200 p-6 mb-8">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-            <Upload className="w-5 h-5 text-indigo-600" />
-            Program Outcomes Documents
-          </h2>
+        {isDean && (
+          <div className="bg-white rounded-lg border border-slate-200 p-6 mb-8">
+            <h2 className="text-lg font-semibold text-slate-900 mb-2">Select Department</h2>
+            <select
+              value={selectedDeptId}
+              onChange={e => setSelectedDeptId(e.target.value)}
+              className="w-full max-w-md px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+            >
+              <option value="">Choose a department...</option>
+              {schoolDepts.map(d => (
+                <option key={d._id} value={d._id}>{d.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {!activeDeptId || !dept ? (
+          <div className="bg-white rounded-lg border border-slate-200 p-12 text-center">
+            <BookOpen className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+            <p className="text-slate-500">Please select a department to proceed</p>
+          </div>
+        ) : (
+          <>
+            {/* PO/PSO Upload Section */}
+            {!isDean && (
+              <div className="bg-white rounded-lg border border-slate-200 p-6 mb-8">
+                <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                  <Upload className="w-5 h-5 text-indigo-600" />
+                  Program Outcomes Documents
+                </h2>
                 <p className="text-sm text-slate-500 mb-4">
                   Upload PO and PSO documents. These will be shared with all teachers under your department for {displayYearsString}.
                 </p>
@@ -285,6 +333,7 @@ export default function TeacherAssignment() {
                   </div>
                 </div>
               </div>
+            )}
 
             {/* Subject-Teacher Assignment Table */}
             {levelOrder.map(level => {
@@ -378,7 +427,7 @@ export default function TeacherAssignment() {
                                       <td className="px-6 py-3">
                                         <div className="flex items-center gap-1">
                                           <button
-                                            onClick={() => { setShowAssignModal(subject); setSelectedFacultyId(''); }}
+                                            onClick={() => { setShowAssignModal(subject); setSelectedFacultyId(''); setFacultySearchTerm(''); }}
                                             className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
                                           >
                                             <UserCheck className="w-3 h-3" />
@@ -429,8 +478,20 @@ export default function TeacherAssignment() {
                     <p className="font-medium text-slate-900">{showAssignModal.name}</p>
                   </div>
 
+                  <div className="mb-4">
+                    <label htmlFor="faculty-search" className="block text-sm font-medium text-slate-700 mb-1">Search Faculty Name</label>
+                    <input
+                      id="faculty-search"
+                      type="text"
+                      placeholder="Type name to filter..."
+                      value={facultySearchTerm}
+                      onChange={e => setFacultySearchTerm(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-sm"
+                    />
+                  </div>
+
                   <div className="mb-6">
-                    <label htmlFor="faculty-select" className="block text-sm font-medium text-slate-700 mb-1">Select Faculty</label>
+                    <label htmlFor="faculty-select" className="block text-sm font-medium text-slate-700 mb-1">Select Faculty ({facultySearchTerm ? 'Filtered' : 'All'})</label>
                     <select
                       id="faculty-select"
                       title="Select a faculty member for assignment"
@@ -439,9 +500,12 @@ export default function TeacherAssignment() {
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                     >
                       <option value="">Choose a faculty member...</option>
-                      {facultyUsers.map(u => (
-                        <option key={u._id} value={u._id}>{u.name} — {u.email}</option>
-                      ))}
+                      {facultyUsers
+                        .filter(u => u.name.toLowerCase().includes(facultySearchTerm.toLowerCase()) || u.email.toLowerCase().includes(facultySearchTerm.toLowerCase()))
+                        .map(u => (
+                          <option key={u._id} value={u._id}>{u.name} — {u.email}</option>
+                        ))
+                      }
                     </select>
                   </div>
 
@@ -460,6 +524,8 @@ export default function TeacherAssignment() {
                 </div>
               </div>
             )}
+          </>
+        )}
       </div>
     </div>
   );

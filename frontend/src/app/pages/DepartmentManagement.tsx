@@ -8,6 +8,7 @@ import {
   UserCheck,
   X,
   Calendar,
+  Layers,
 } from "lucide-react";
 
 interface User {
@@ -42,6 +43,15 @@ export default function DepartmentManagement() {
   // HOD Assignment state
   const [selectedUserId, setSelectedUserId] = useState("");
   const [selectedYears, setSelectedYears] = useState<number[]>([]);
+
+  // Add Program state
+  const [showAddProgram, setShowAddProgram] = useState(false);
+  const [newProgramDeptId, setNewProgramDeptId] = useState("");
+  const [newProgramLevel, setNewProgramLevel] = useState("UG");
+  const [newProgramName, setNewProgramName] = useState("");
+  const [newProgramYears, setNewProgramYears] = useState(3);
+  
+  const schoolDepts = departments.map(d => ({id: d._id, name: d.name}));
 
   // If Dean but no schoolId, maybe it was just assigned. Try refresh once.
   useEffect(() => {
@@ -123,6 +133,29 @@ export default function DepartmentManagement() {
     }
   };
 
+  const handleAddProgram = async () => {
+    if (!newProgramName.trim() || !newProgramDeptId) return;
+    try {
+      await fetch('/api/programs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: newProgramName.trim(),
+          level: newProgramLevel,
+          duration: newProgramYears * 12,
+          departmentId: newProgramDeptId,
+          startYear: new Date().getFullYear()
+        })
+      });
+      setNewProgramName("");
+      setNewProgramDeptId("");
+      setShowAddProgram(false);
+      setRefresh(r => r + 1);
+    } catch(err) {
+      console.error(err);
+    }
+  };
+
   const handleAssignHOD = async (deptId: string) => {
     if (!selectedUserId) return;
     try {
@@ -179,22 +212,6 @@ export default function DepartmentManagement() {
               Department Management
             </h1>
             <p className="text-slate-600">Manage departments and assign HODs</p>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setShowAddProgram(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              <Layers className="w-5 h-5" />
-              Add Program
-            </button>
-            <button
-              onClick={() => setShowAddDept(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="w-5 h-5" />
-              Add Department
-            </button>
           </div>
         </div>
 
@@ -429,9 +446,7 @@ export default function DepartmentManagement() {
                   </label>
                   <select
                     value={newProgramLevel}
-                    onChange={(e) =>
-                      setNewProgramLevel(e.target.value as ProgramLevel)
-                    }
+                    onChange={(e) => setNewProgramLevel(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
                   >
                     <option value="UG">Undergraduate (UG)</option>
@@ -525,7 +540,7 @@ export default function DepartmentManagement() {
                     <option value="">Choose a user...</option>
                     {availableUsers.map((u) => (
                       <option key={u._id} value={u._id}>
-                        {u.name} ({u.role}) — {u.email}
+                        {u.name} — {u.role} — {u.email}
                       </option>
                     ))}
                   </select>

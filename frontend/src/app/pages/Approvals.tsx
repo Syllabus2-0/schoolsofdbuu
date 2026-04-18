@@ -177,11 +177,10 @@ export default function Approvals() {
                       <button
                         key={syllabus._id}
                         onClick={() => setSelectedSyllabusId(syllabus._id)}
-                        className={`w-full p-4 text-left hover:bg-slate-50 transition-colors ${
-                          selectedSyllabusId === syllabus._id
+                        className={`w-full p-4 text-left hover:bg-slate-50 transition-colors ${selectedSyllabusId === syllabus._id
                             ? "bg-indigo-50"
                             : ""
-                        }`}
+                          }`}
                       >
                         <div className="font-medium text-sm text-slate-900 mb-1">
                           {syllabus.programId?.name || "Unknown Program"}
@@ -295,7 +294,7 @@ export default function Approvals() {
 
                   <div className="space-y-3 mb-4">
                     {!selectedSyllabusData.comments ||
-                    selectedSyllabusData.comments.length === 0 ? (
+                      selectedSyllabusData.comments.length === 0 ? (
                       <p className="text-sm text-slate-500">No comments yet</p>
                     ) : (
                       selectedSyllabusData.comments.map(

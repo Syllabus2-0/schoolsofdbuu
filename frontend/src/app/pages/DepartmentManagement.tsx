@@ -43,7 +43,7 @@ export default function DepartmentManagement() {
   }, [currentUser?.role, currentUser?.schoolId, refreshUser]);
 
   useEffect(() => {
-    if (!token || currentUser?.role !== 'Dean') return;
+    if (!token || (currentUser?.role !== 'Dean' && currentUser?.role !== 'SuperAdmin')) return;
 
     const loadData = async () => {
       try {
@@ -64,8 +64,20 @@ export default function DepartmentManagement() {
     loadData();
   }, [token, currentUser, refresh]);
 
-  if (!currentUser || currentUser.role !== 'Dean' || !currentUser.schoolId) {
+  if (!currentUser || (currentUser.role !== 'Dean' && currentUser.role !== 'SuperAdmin')) {
     return <div className="p-8">Access denied</div>;
+  }
+
+  if (currentUser.role === 'Dean' && !currentUser.schoolId) {
+    return (
+      <div className="p-8 max-w-3xl mx-auto mt-10">
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-6 rounded-lg text-center">
+          <h2 className="text-xl font-bold mb-2">School Assignment Pending</h2>
+          <p>You are logged in as a Dean, but you have not been assigned to a School yet.</p> 
+          <p className="mt-2">A SuperAdmin must assign you to a school in the "School Management" tab before you can manage departments and assign HODs.</p>
+        </div>
+      </div>
+    );
   }
 
   const handleAddDept = async () => {
@@ -133,13 +145,15 @@ export default function DepartmentManagement() {
               Manage departments and assign HODs
             </p>
           </div>
-          <button
-            onClick={() => setShowAddDept(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            Add Department
-          </button>
+          {currentUser.role === 'Dean' && (
+            <button
+              onClick={() => setShowAddDept(true)}
+              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+              Add Department
+            </button>
+          )}
         </div>
 
         {/* Departments Table */}

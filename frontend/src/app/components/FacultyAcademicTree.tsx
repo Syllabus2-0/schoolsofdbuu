@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ChevronRight,
   ChevronDown,
@@ -9,32 +9,42 @@ import {
   BookOpen,
   Calendar,
 } from 'lucide-react';
-import {
-  getFacultyAssignments,
-  getDepartmentById,
-  getSubjectById,
-  getProgramById,
-  type ProgramLevel,
-  type Subject,
-} from '../data/universityData';
 import { useAuth } from '../context/AuthContext';
 
-const levelMeta: Record<ProgramLevel, { color: string; label: string }> = {
+const levelMeta: Record<string, { color: string; label: string }> = {
   UG:     { color: 'text-emerald-600', label: 'Undergraduate' },
   PG:     { color: 'text-violet-600',  label: 'Postgraduate' },
   'Ph.D': { color: 'text-rose-600',   label: 'Doctorate' },
 };
 
-const levelOrder: ProgramLevel[] = ['UG', 'PG', 'Ph.D'];
+const levelOrder = ['UG', 'PG', 'Ph.D'];
 
-/**
- * FacultyAcademicTree
- *
- * Assignment-based tree: Department → Level → Program → Year → Subject (only assigned)
- */
 export default function FacultyAcademicTree() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const { currentUser } = useAuth();
+  const { currentUser, token } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [assignments, setAssignments] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!token || currentUser?.role !== 'Faculty') return;
+
+    const fetchAssignments = async () => {
+      try {
+        const res = await fetch('/api/faculty-assignments', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          setAssignments(await res.json());
+        }
+      } catch (err) {
+        console.error("Assignments fetch failed", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAssignments();
+  }, [token, currentUser]);
 
   const toggle = (id: string) => {
     setExpanded(prev => {
@@ -47,67 +57,70 @@ export default function FacultyAcademicTree() {
   const isOpen = (id: string) => expanded.has(id);
 
   if (!currentUser) return null;
-
-  const assignments = getFacultyAssignments(currentUser.id);
+  if (loading) return <div className="p-4 text-xs text-slate-500">Loading assignments...</div>;
 
   // Build structured grouping: Department → Level → Program → Year → Subject
-  type YearGroup = { yearLabel: string; yearOrder: number; subjects: Subject[] };
+  type YearGroup = { yearLabel: string; yearOrder: number; subjects: any[] };
   type ProgramGroup = { programId: string; programName: string; years: Map<string, YearGroup> };
-  type LevelGroup = { level: ProgramLevel; programs: Map<string, ProgramGroup> };
-  type DeptGroup = { deptId: string; deptName: string; levels: Map<ProgramLevel, LevelGroup> };
+  type LevelGroup = { level: string; programs: Map<string, ProgramGroup> };
+  type DeptGroup = { deptId: string; deptName: string; levels: Map<string, LevelGroup> };
 
   const deptMap = new Map<string, DeptGroup>();
 
   for (const asn of assignments) {
-    const subject = getSubjectById(asn.subjectId);
-    const dept = getDepartmentById(asn.departmentId);
+    const subject = asn.subjectId;
+    const dept = asn.departmentId;
     if (!subject || !dept) continue;
 
-    const program = getProgramById(subject.programId);
+    const program = subject.programId;
     if (!program) continue;
 
+    const deptId = dept._id || dept.id;
+    const progId = program._id || program.id;
+
     // Ensure dept
-    if (!deptMap.has(asn.departmentId)) {
-      deptMap.set(asn.departmentId, {
-        deptId: asn.departmentId,
+    if (!deptMap.has(deptId)) {
+      deptMap.set(deptId, {
+        deptId: deptId,
         deptName: dept.name,
         levels: new Map(),
       });
     }
-    const deptGroup = deptMap.get(asn.departmentId)!;
+    const deptGroup = deptMap.get(deptId)!;
 
     // Ensure level
-    if (!deptGroup.levels.has(program.level)) {
-      deptGroup.levels.set(program.level, {
-        level: program.level,
+    const level = program.level;
+    if (!deptGroup.levels.has(level)) {
+      deptGroup.levels.set(level, {
+        level: level,
         programs: new Map(),
       });
     }
-    const lvlGroup = deptGroup.levels.get(program.level)!;
+    const lvlGroup = deptGroup.levels.get(level)!;
 
     // Ensure program
-    if (!lvlGroup.programs.has(program.id)) {
-      lvlGroup.programs.set(program.id, {
-        programId: program.id,
+    if (!lvlGroup.programs.has(progId)) {
+      lvlGroup.programs.set(progId, {
+        programId: progId,
         programName: program.name,
         years: new Map(),
       });
     }
-    const progGroup = lvlGroup.programs.get(program.id)!;
+    const progGroup = lvlGroup.programs.get(progId)!;
 
     // Ensure year
-    if (!progGroup.years.has(subject.yearLabel)) {
-      progGroup.years.set(subject.yearLabel, {
-        yearLabel: subject.yearLabel,
+    const yearLabel = subject.yearLabel || `Year ${subject.yearOrder}`;
+    if (!progGroup.years.has(yearLabel)) {
+      progGroup.years.set(yearLabel, {
+        yearLabel: yearLabel,
         yearOrder: subject.yearOrder,
         subjects: [],
       });
     }
-    progGroup.years.get(subject.yearLabel)!.subjects.push(subject);
+    progGroup.years.get(yearLabel)!.subjects.push(subject);
   }
 
   const deptEntries = Array.from(deptMap.values());
-  const totalSubjects = assignments.length;
 
   return (
     <div className="space-y-1">
@@ -117,14 +130,13 @@ export default function FacultyAcademicTree() {
           <span>My Assignments</span>
         </div>
         <p className="text-xs text-slate-500">
-          {totalSubjects} subject{totalSubjects !== 1 ? 's' : ''} across{' '}
-          {deptEntries.length} department{deptEntries.length !== 1 ? 's' : ''}
+          {assignments.length} subjects scoped to your teaching role
         </p>
       </div>
 
       {deptEntries.length === 0 && (
         <div className="px-3 py-4 text-center">
-          <p className="text-xs text-slate-400">No assignments found.</p>
+          <p className="text-xs text-slate-400">No active assignments found.</p>
         </div>
       )}
 
@@ -133,7 +145,6 @@ export default function FacultyAcademicTree() {
 
         return (
           <div key={deptGroup.deptId} className="space-y-1">
-            {/* Department */}
             <button
               onClick={() => toggle(deptKey)}
               className="w-full flex items-center gap-2 px-2 py-2 text-sm hover:bg-slate-100 rounded-lg transition-colors text-left group"
@@ -152,12 +163,11 @@ export default function FacultyAcademicTree() {
                   .map(level => {
                     const lvlGroup = deptGroup.levels.get(level)!;
                     const lvlKey = `fac-lvl-${deptGroup.deptId}-${level}`;
-                    const { color, label } = levelMeta[level];
+                    const { color, label } = levelMeta[level] || { color: 'text-slate-600', label: level };
                     const progEntries = Array.from(lvlGroup.programs.values());
 
                     return (
                       <div key={lvlKey} className="space-y-1">
-                        {/* Level */}
                         <button
                           onClick={() => toggle(lvlKey)}
                           className="w-full flex items-center gap-2 px-2 py-1.5 text-sm hover:bg-slate-100 rounded-lg transition-colors text-left"
@@ -178,7 +188,6 @@ export default function FacultyAcademicTree() {
 
                               return (
                                 <div key={progGroup.programId} className="space-y-1">
-                                  {/* Program */}
                                   <button
                                     onClick={() => toggle(progKey)}
                                     className="w-full flex items-center gap-2 px-2 py-1 text-sm hover:bg-slate-50 rounded-lg transition-colors text-left"
@@ -195,7 +204,6 @@ export default function FacultyAcademicTree() {
 
                                         return (
                                           <div key={yearKey} className="space-y-0.5">
-                                            {/* Year */}
                                             <button
                                               onClick={() => toggle(yearKey)}
                                               className="w-full flex items-center gap-2 px-2 py-1 text-xs hover:bg-slate-50 rounded-lg transition-colors text-left"
@@ -206,12 +214,11 @@ export default function FacultyAcademicTree() {
                                               <span className="text-slate-400">({yg.subjects.length})</span>
                                             </button>
 
-                                            {/* Subjects */}
                                             {isOpen(yearKey) && (
                                               <div className="ml-4 space-y-0.5 border-l border-slate-100 pl-2">
                                                 {yg.subjects.map(subject => (
                                                   <div
-                                                    key={subject.id}
+                                                    key={subject._id || subject.id}
                                                     className="flex items-center gap-2 px-2 py-1 text-xs hover:bg-amber-50 rounded-lg transition-colors"
                                                   >
                                                     <FileText className="w-2.5 h-2.5 text-amber-500 shrink-0" />

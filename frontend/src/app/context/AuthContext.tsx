@@ -5,15 +5,15 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
-import { type User, type UserRole, users } from "../data/universityData";
+import { type User } from "../data/types";
 
 interface AuthContextType {
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
   token?: string | null;
   setToken?: (t: string | null) => void;
-  simulateRole: (role: UserRole) => void;
   logout: () => void;
+  refreshUser: () => Promise<void>;
   loading: boolean;
 }
 
@@ -30,39 +30,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   });
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-      try {
-        const res = await fetch("/api/auth/me", {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setCurrentUser(data.user);
-        } else {
-          logout();
+  const fetchUser = async () => {
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const res = await fetch("/api/auth/me", {
+        headers: {
+          Authorization: `Bearer ${token}`
         }
-      } catch (err) {
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentUser(data.user);
+      } else {
         logout();
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (err) {
+      logout();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchUser();
   }, [token]);
 
-  const simulateRole = (role: UserRole) => {
-    const user = users.find((u) => u.role === role);
-    if (user) {
-      setCurrentUser(user);
-    }
+  const refreshUser = async () => {
+    await fetchUser();
   };
+
+
 
   const logout = () => {
     setCurrentUser(null);
@@ -79,8 +79,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setCurrentUser,
         token,
         setToken,
-        simulateRole,
         logout,
+        refreshUser,
         loading,
       }}
     >

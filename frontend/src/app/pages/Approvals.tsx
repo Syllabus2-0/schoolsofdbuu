@@ -1,102 +1,158 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router';
-import { useAuth } from '../context/AuthContext';
-import {
-  syllabi,
-  updateSyllabus,
-  addComment,
-  programs,
-  users,
-  type SyllabusStatus,
-} from '../data/universityData';
-import { CheckCircle, XCircle, MessageSquare, FileText } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
+import { CheckCircle, XCircle, MessageSquare, FileText } from "lucide-react";
+
+interface Comment {
+  userName: string;
+  text: string;
+  timestamp: string;
+}
+
+interface Course {
+  code: string;
+  name: string;
+  description: string;
+  credits: number;
+  type: string;
+}
+
+interface Semester {
+  semesterNumber: number;
+  courses: Course[];
+}
+
+interface Syllabus {
+  _id: string;
+  status: string;
+  updatedAt: string;
+  programId?: {
+    _id: string;
+    name: string;
+    level: string;
+    duration: number;
+  };
+  facultyId?: {
+    _id: string;
+    name: string;
+  };
+  hodSignature?: string;
+  deanSignature?: string;
+  semesters?: Semester[];
+  comments?: Comment[];
+}
 
 export default function Approvals() {
-  const { currentUser } = useAuth();
-  const navigate = useNavigate();
-  const [selectedSyllabus, setSelectedSyllabus] = useState<string | null>(null);
-  const [commentText, setCommentText] = useState('');
+  const { currentUser, token } = useAuth();
 
-  if (!currentUser || (currentUser.role !== 'HOD' && currentUser.role !== 'Dean' && currentUser.role !== 'SuperAdmin')) {
+  const [syllabi, setSyllabi] = useState<Syllabus[]>([]);
+  const [selectedSyllabusId, setSelectedSyllabusId] = useState<string | null>(
+    null,
+  );
+  const [commentText, setCommentText] = useState("");
+
+  const [loading, setLoading] = useState(true);
+  const [refresh, setRefresh] = useState(0);
+
+  useEffect(() => {
+    if (!token || (currentUser?.role !== "HOD" && currentUser?.role !== "Dean"))
+      return;
+
+    const fetchSyllabi = async () => {
+      try {
+        const auth = { Authorization: `Bearer ${token}` };
+        // The backend `getSyllabi` automatically scopes results to either the Dept or School
+        // based on the HOD/Dean role.
+        const res = await fetch("/api/syllabi", { headers: auth });
+        if (res.ok) {
+          setSyllabi(await res.json());
+        }
+      } catch (err) {
+        console.error("Failed to fetch syllabi for approval", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSyllabi();
+  }, [token, currentUser, refresh]);
+
+  if (
+    !currentUser ||
+    (currentUser.role !== "HOD" && currentUser.role !== "Dean")
+  ) {
     return <div className="p-8">Access denied</div>;
   }
 
-  const pendingApprovals = syllabi.filter(s => {
-    if (currentUser.role === 'HOD') {
-      return s.status === 'Pending HOD Review';
-    }
-    if (currentUser.role === 'Dean') {
-      return s.status === 'Pending Dean Approval';
-    }
+  const pendingApprovals = syllabi.filter((s) => {
+    if (currentUser.role === "HOD") return s.status === "Pending HOD Review";
+    if (currentUser.role === "Dean")
+      return s.status === "Pending Dean Approval";
     return false;
   });
 
-  const selectedSyllabusData = syllabi.find(s => s.id === selectedSyllabus);
-  const selectedProgram = selectedSyllabusData
-    ? programs.find(p => p.id === selectedSyllabusData.programId)
-    : null;
-  const faculty = selectedSyllabusData
-    ? users.find(u => u.id === selectedSyllabusData.facultyId)
-    : null;
+  const selectedSyllabusData = syllabi.find(
+    (s) => s._id === selectedSyllabusId,
+  );
 
-  const handleApprove = () => {
-    if (!selectedSyllabus || !currentUser) return;
-
-    const syllabus = syllabi.find(s => s.id === selectedSyllabus);
-    if (!syllabus) return;
-
-    let newStatus: SyllabusStatus;
-    const updates: any = {};
-
-    if (currentUser.role === 'HOD') {
-      newStatus = 'Pending Dean Approval';
-      updates.hodSignature = currentUser.name;
-      updates.status = newStatus;
-    } else if (currentUser.role === 'Dean') {
-      newStatus = 'Published';
-      updates.deanSignature = currentUser.name;
-      updates.status = newStatus;
+  const handleApprove = async () => {
+    if (!selectedSyllabusId || !token) return;
+    try {
+      await fetch(`/api/syllabi/${selectedSyllabusId}/approve`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setSelectedSyllabusId(null);
+      setRefresh((r) => r + 1);
+    } catch (err) {
+      console.error(err);
     }
-
-    updateSyllabus(selectedSyllabus, updates);
-    setSelectedSyllabus(null);
   };
 
-  const handleReject = () => {
-    if (!selectedSyllabus || !commentText) return;
-
-    updateSyllabus(selectedSyllabus, { status: 'Draft' });
-    addComment(selectedSyllabus, {
-      id: `comment-${Date.now()}`,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      text: `Rejected: ${commentText}`,
-      timestamp: new Date().toISOString(),
-    });
-
-    setCommentText('');
-    setSelectedSyllabus(null);
+  const handleReject = async () => {
+    if (!selectedSyllabusId || !commentText || !token) return;
+    try {
+      await fetch(`/api/syllabi/${selectedSyllabusId}/reject`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ comment: commentText }),
+      });
+      setCommentText("");
+      setSelectedSyllabusId(null);
+      setRefresh((r) => r + 1);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const handleComment = () => {
-    if (!selectedSyllabus || !commentText) return;
-
-    addComment(selectedSyllabus, {
-      id: `comment-${Date.now()}`,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      text: commentText,
-      timestamp: new Date().toISOString(),
-    });
-
-    setCommentText('');
+  const handleComment = async () => {
+    if (!selectedSyllabusId || !commentText || !token) return;
+    try {
+      await fetch(`/api/syllabi/${selectedSyllabusId}/comments`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ text: commentText }),
+      });
+      setCommentText("");
+      setRefresh((r) => r + 1);
+    } catch (err) {
+      console.error(err);
+    }
   };
+
+  if (loading) return <div className="p-8">Loading approval queues...</div>;
 
   return (
     <div className="p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Approval Queue</h1>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">
+            Approval Queue
+          </h1>
           <p className="text-slate-600">Review and approve submitted syllabi</p>
         </div>
 
@@ -116,22 +172,21 @@ export default function Approvals() {
                     No pending approvals
                   </div>
                 ) : (
-                  pendingApprovals.map(syllabus => {
-                    const program = programs.find(p => p.id === syllabus.programId);
-                    const facultyUser = users.find(u => u.id === syllabus.facultyId);
-
+                  pendingApprovals.map((syllabus) => {
                     return (
                       <button
-                        key={syllabus.id}
-                        onClick={() => setSelectedSyllabus(syllabus.id)}
-                        className={`w-full p-4 text-left hover:bg-slate-50 transition-colors ${selectedSyllabus === syllabus.id ? 'bg-indigo-50' : ''
+                        key={syllabus._id}
+                        onClick={() => setSelectedSyllabusId(syllabus._id)}
+                        className={`w-full p-4 text-left hover:bg-slate-50 transition-colors ${selectedSyllabusId === syllabus._id
+                            ? "bg-indigo-50"
+                            : ""
                           }`}
                       >
                         <div className="font-medium text-sm text-slate-900 mb-1">
-                          {program?.name}
+                          {syllabus.programId?.name || "Unknown Program"}
                         </div>
                         <div className="text-xs text-slate-500">
-                          By {facultyUser?.name}
+                          By {syllabus.facultyId?.name || "Unknown Faculty"}
                         </div>
                         <div className="text-xs text-slate-500 mt-1">
                           {new Date(syllabus.updatedAt).toLocaleDateString()}
@@ -156,49 +211,157 @@ export default function Approvals() {
                 {/* Header */}
                 <div className="bg-white rounded-lg border border-slate-200 p-6">
                   <h2 className="text-xl font-bold text-slate-900 mb-2">
-                    {selectedProgram?.name}
+                    {selectedSyllabusData.programId?.name}
                   </h2>
                   <div className="flex items-center gap-4 text-sm text-slate-600">
-                    <span>Submitted by {faculty?.name}</span>
+                    <span>
+                      Submitted by {selectedSyllabusData.facultyId?.name}
+                    </span>
                     <span>•</span>
-                    <span>{selectedProgram?.level} Program</span>
+                    <span>{selectedSyllabusData.programId?.level} Program</span>
                     <span>•</span>
-                    <span>{selectedProgram?.duration} months</span>
+                    <span>
+                      {selectedSyllabusData.programId?.duration} months
+                    </span>
                   </div>
 
                   <div className="mt-4 pt-4 border-t border-slate-200">
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="text-slate-600">HOD Signature:</span>{' '}
+                        <span className="text-slate-600">HOD Signature:</span>{" "}
                         <span className="font-medium text-slate-900">
-                          {selectedSyllabusData.hodSignature || 'Pending'}
+                          {selectedSyllabusData.hodSignature || "Pending"}
                         </span>
                       </div>
                       <div>
-                        <span className="text-slate-600">Dean Signature:</span>{' '}
+                        <span className="text-slate-600">Dean Signature:</span>{" "}
                         <span className="font-medium text-slate-900">
-                          {selectedSyllabusData.deanSignature || 'Pending'}
+                          {selectedSyllabusData.deanSignature || "Pending"}
                         </span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Review Redirect */}
-                <div className="bg-white rounded-lg border border-slate-200 p-10 mt-6 flex flex-col items-center justify-center text-center">
-                   <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mb-4">
-                      <FileText className="w-8 h-8 text-indigo-600" />
-                   </div>
-                   <h3 className="font-semibold text-lg text-slate-900 mb-2">Detailed Syllabus Review</h3>
-                   <p className="text-slate-500 max-w-md mb-8">
-                      Click below to officially review the full Course Details, COs, CLOs, Contents, and the CO-PO Evaluation Matrix.
-                   </p>
-                   <button
-                     onClick={() => navigate(`/syllabus/review/${selectedSyllabus}`)}
-                     className="flex items-center justify-center gap-2 px-8 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-                   >
-                     Review Detailed Syllabus
-                   </button>
+                {/* Courses */}
+                <div className="bg-white rounded-lg border border-slate-200 p-6">
+                  <h3 className="font-semibold text-slate-900 mb-4">
+                    Course Details
+                  </h3>
+
+                  {selectedSyllabusData.semesters?.map((semester: Semester) => (
+                    <div key={semester.semesterNumber} className="mb-6">
+                      <h4 className="text-sm font-medium text-slate-700 mb-3">
+                        Semester {semester.semesterNumber}
+                      </h4>
+
+                      <div className="space-y-3">
+                        {semester.courses?.map((course: Course, idx: number) => (
+                          <div
+                            key={idx}
+                            className="p-4 border border-slate-200 rounded-lg"
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="font-medium text-slate-900">
+                                  {course.code} - {course.name}
+                                </div>
+                                <div className="text-sm text-slate-600 mt-1">
+                                  {course.description}
+                                </div>
+                              </div>
+                              <div className="ml-4 flex gap-2">
+                                <span className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded">
+                                  {course.credits} credits
+                                </span>
+                                <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded">
+                                  {course.type}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Comments */}
+                <div className="bg-white rounded-lg border border-slate-200 p-6">
+                  <h3 className="font-semibold text-slate-900 mb-4">
+                    Comments
+                  </h3>
+
+                  <div className="space-y-3 mb-4">
+                    {!selectedSyllabusData.comments ||
+                      selectedSyllabusData.comments.length === 0 ? (
+                      <p className="text-sm text-slate-500">No comments yet</p>
+                    ) : (
+                      selectedSyllabusData.comments.map(
+                        (comment: Comment, idx: number) => (
+                          <div key={idx} className="p-3 bg-slate-50 rounded-lg">
+                            <div className="flex items-start justify-between mb-1">
+                              <span className="font-medium text-sm text-slate-900">
+                                {comment.userName}
+                              </span>
+                              <span className="text-xs text-slate-500">
+                                {new Date(comment.timestamp).toLocaleString()}
+                              </span>
+                            </div>
+                            <p className="text-sm text-slate-700">
+                              {comment.text}
+                            </p>
+                          </div>
+                        ),
+                      )
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      title="Add a comment"
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      placeholder="Add a comment..."
+                      className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <button
+                      onClick={handleComment}
+                      className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors flex items-center gap-2"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      Comment
+                    </button>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="bg-white rounded-lg border border-slate-200 p-6">
+                  <h3 className="font-semibold text-slate-900 mb-4">
+                    Review Actions
+                  </h3>
+
+                  <div className="flex gap-4">
+                    <button
+                      onClick={handleApprove}
+                      className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+                    >
+                      <CheckCircle className="w-5 h-5" />
+                      Approve
+                    </button>
+                    <button
+                      onClick={handleReject}
+                      disabled={!commentText}
+                      className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <XCircle className="w-5 h-5" />
+                      Reject
+                    </button>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-2 text-center">
+                    Add a comment before rejecting
+                  </p>
                 </div>
               </div>
             )}

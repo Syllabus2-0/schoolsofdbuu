@@ -1,13 +1,5 @@
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import {
-  getSchoolById,
-  getDepartmentById,
-  getFacultyAssignments,
-  getSubjectById,
-  getProgramById,
-  getPOPSODocuments,
-  type User,
-} from '../data/universityData';
 import {
   User as UserIcon,
   Mail,
@@ -19,6 +11,48 @@ import {
   GraduationCap,
   FileText,
 } from 'lucide-react';
+
+interface School {
+  _id: string;
+  name: string;
+  code: string;
+}
+
+interface Department {
+  _id: string;
+  name: string;
+}
+
+interface Assignment {
+  _id: string;
+  subjectId?: {
+    name: string;
+    yearOrder: number;
+  };
+  departmentId?: {
+    name: string;
+  };
+  userId?: string | {
+    _id: string;
+  };
+}
+
+interface PopsoDoc {
+  _id: string;
+  documentType: string;
+  fileName: string;
+  fileUrl: string;
+}
+
+interface UserProfile {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+  schoolId?: string;
+  departmentId?: string;
+  assignedYears?: number[];
+}
 
 const roleLabels: Record<string, string> = {
   SuperAdmin: 'Super Administrator',
@@ -35,12 +69,62 @@ const roleColors: Record<string, { bg: string; text: string; border: string }> =
 };
 
 export default function Profile() {
-  const { currentUser } = useAuth();
+  const { currentUser, token } = useAuth();
+  
+  const [school, setSchool] = useState<School | null>(null);
+  const [department, setDepartment] = useState<Department | null>(null);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [popso, setPopso] = useState<PopsoDoc[]>([]);
+
+  useEffect(() => {
+    if (!currentUser || !token) return;
+
+    const fetchDetails = async () => {
+      try {
+        const auth = { Authorization: `Bearer ${token}` };
+
+        if (currentUser.schoolId) {
+          fetch(`/api/schools/${currentUser.schoolId}`, { headers: auth })
+            .then(r => r.ok && r.json()).then(setSchool).catch(console.error);
+        }
+
+        if (currentUser.departmentId) {
+          fetch(`/api/departments/${currentUser.departmentId}`, { headers: auth })
+            .then(r => r.ok && r.json()).then(setDepartment).catch(console.error);
+        }
+
+        if (currentUser.role === 'Faculty') {
+          fetch(`/api/faculty-assignments`, { headers: auth })
+            .then(r => r.ok && r.json() as Promise<Assignment[]>)
+            .then(data => {
+              if (data) {
+                setAssignments(data.filter((a: Assignment) => {
+                  const uid = typeof a.userId === 'object' ? a.userId?._id : a.userId;
+                  return uid === currentUser._id;
+                }));
+              }
+            })
+            .catch(console.error);
+        }
+
+        if (currentUser.role === 'HOD') {
+          fetch(`/api/popso`, { headers: auth })
+            .then(r => r.ok && r.json())
+            .then(setPopso)
+            .catch(console.error);
+        }
+
+      } catch (err) {
+        console.error("Profile fetch error", err);
+      }
+    };
+
+    fetchDetails();
+  }, [currentUser, token]);
+
 
   if (!currentUser) return null;
 
-  const school = currentUser.schoolId ? getSchoolById(currentUser.schoolId) : null;
-  const dept = currentUser.departmentId ? getDepartmentById(currentUser.departmentId) : null;
   const colors = roleColors[currentUser.role] || roleColors.Faculty;
 
   return (
@@ -62,7 +146,7 @@ export default function Profile() {
             <div className="flex items-end gap-6 -mt-12 mb-6">
               <div className="w-24 h-24 rounded-full bg-white border-4 border-white shadow-lg flex items-center justify-center bg-gradient-to-br from-indigo-100 to-purple-100">
                 <span className="text-2xl font-bold text-indigo-700">
-                  {currentUser.name.split(' ').map(n => n[0]).join('')}
+                  {currentUser.name.split(' ').map((n: string) => n[0]).join('')}
                 </span>
               </div>
               <div className="pb-1">
@@ -77,15 +161,19 @@ export default function Profile() {
             {/* Details Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <InfoRow icon={<Mail className="w-4 h-4 text-slate-500" />} label="Email" value={currentUser.email} />
-              <InfoRow icon={<UserIcon className="w-4 h-4 text-slate-500" />} label="User ID" value={currentUser.id} />
+              <InfoRow icon={<UserIcon className="w-4 h-4 text-slate-500" />} label="Database ID" value={currentUser._id} />
               {school && (
                 <InfoRow icon={<Building className="w-4 h-4 text-slate-500" />} label="School" value={`${school.code} — ${school.name}`} />
               )}
-              {dept && (
-                <InfoRow icon={<Briefcase className="w-4 h-4 text-slate-500" />} label="Department" value={dept.name} />
+              {department && (
+                <InfoRow icon={<Briefcase className="w-4 h-4 text-slate-500" />} label="Department" value={department.name} />
               )}
-              {currentUser.assignedYear && (
-                <InfoRow icon={<Calendar className="w-4 h-4 text-slate-500" />} label="Assigned Year" value={`Year ${currentUser.assignedYear}`} />
+              {currentUser.assignedYears && currentUser.assignedYears.length > 0 && (
+                <InfoRow 
+                  icon={<Calendar className="w-4 h-4 text-slate-500" />} 
+                  label="Assigned Years" 
+                  value={`Years: ${currentUser.assignedYears.join(', ')}`} 
+                />
               )}
             </div>
           </div>
@@ -93,9 +181,9 @@ export default function Profile() {
 
         {/* Role-specific sections */}
         {currentUser.role === 'SuperAdmin' && <AdminProfileSection />}
-        {currentUser.role === 'Dean' && school && <DeanProfileSection schoolId={school.id} />}
-        {currentUser.role === 'HOD' && <HODProfileSection user={currentUser} />}
-        {currentUser.role === 'Faculty' && <FacultyProfileSection user={currentUser} />}
+        {currentUser.role === 'Dean' && school && <DeanProfileSection school={school} />}
+        {currentUser.role === 'HOD' && department && <HODProfileSection user={currentUser as UserProfile} dept={department} popso={popso} />}
+        {currentUser.role === 'Faculty' && <FacultyProfileSection assignments={assignments} />}
       </div>
     </div>
   );
@@ -139,8 +227,7 @@ function AdminProfileSection() {
   );
 }
 
-function DeanProfileSection({ schoolId }: { schoolId: string }) {
-  const school = getSchoolById(schoolId);
+function DeanProfileSection({ school }: { school: School }) {
   return (
     <div className="bg-white rounded-lg border border-slate-200 p-6">
       <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center gap-2">
@@ -167,12 +254,7 @@ function DeanProfileSection({ schoolId }: { schoolId: string }) {
   );
 }
 
-function HODProfileSection({ user }: { user: User }) {
-  const dept = user.departmentId ? getDepartmentById(user.departmentId) : null;
-  const popso = user.departmentId && user.assignedYear
-    ? getPOPSODocuments(user.departmentId, user.assignedYear)
-    : [];
-
+function HODProfileSection({ user, dept, popso }: { user: UserProfile, dept: Department, popso: PopsoDoc[] }) {
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg border border-slate-200 p-6">
@@ -181,7 +263,7 @@ function HODProfileSection({ user }: { user: User }) {
           HOD Responsibilities
         </h3>
         <p className="text-sm text-slate-600 mb-4">
-          You manage <strong>{dept?.name}</strong> — Year {user.assignedYear}
+          You manage <strong>{dept?.name}</strong> — Years: {user.assignedYears?.length ? user.assignedYears.join(', ') : 'All'}
         </p>
         <div className="grid grid-cols-2 gap-3">
           {[
@@ -203,10 +285,10 @@ function HODProfileSection({ user }: { user: User }) {
           <h3 className="text-sm font-semibold text-slate-900 mb-3">Uploaded Documents</h3>
           <div className="space-y-2">
             {popso.map(doc => (
-              <div key={doc.id} className="flex items-center gap-3 text-sm bg-slate-50 px-3 py-2 rounded-lg">
+              <div key={doc._id} className="flex items-center gap-3 text-sm bg-slate-50 px-3 py-2 rounded-lg">
                 <FileText className="w-4 h-4 text-green-600" />
-                <span className="font-medium text-slate-700">{doc.type}</span>
-                <span className="text-slate-500">— {doc.fileName}</span>
+                <span className="font-medium text-slate-700">{doc.documentType}</span>
+                <span className="text-slate-500">— {doc.fileName || doc.fileUrl}</span>
               </div>
             ))}
           </div>
@@ -216,9 +298,7 @@ function HODProfileSection({ user }: { user: User }) {
   );
 }
 
-function FacultyProfileSection({ user }: { user: User }) {
-  const assignments = getFacultyAssignments(user.id);
-
+function FacultyProfileSection({ assignments }: { assignments: Assignment[] }) {
   return (
     <div className="bg-white rounded-lg border border-slate-200 p-6">
       <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
@@ -230,23 +310,18 @@ function FacultyProfileSection({ user }: { user: User }) {
         <p className="text-sm text-slate-500">No subjects assigned yet.</p>
       ) : (
         <div className="space-y-2">
-          {assignments.map(asn => {
-            const subject = getSubjectById(asn.subjectId);
-            const program = subject ? getProgramById(subject.programId) : null;
-            const dept = getDepartmentById(asn.departmentId);
-
-            return (
-              <div key={asn.id} className="flex items-center gap-4 p-3 bg-amber-50 rounded-lg">
-                <FileText className="w-4 h-4 text-amber-600 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900">{subject?.name || 'Unknown'}</p>
-                  <p className="text-xs text-slate-500">
-                    {program?.name} ({program?.level}) — {dept?.name} — {subject?.yearLabel}
-                  </p>
-                </div>
+          {assignments.map(asn => (
+            <div key={asn._id} className="flex items-center gap-4 p-3 bg-amber-50 rounded-lg">
+              <FileText className="w-4 h-4 text-amber-600 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-900">{asn.subjectId?.name || 'Unknown Subject'}</p>
+                <p className="text-xs text-slate-500">
+                  {asn.departmentId?.name || 'Department'}
+                  {' '}- Year {asn.subjectId?.yearOrder || 0}
+                </p>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
     </div>

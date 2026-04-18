@@ -1,31 +1,78 @@
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router';
-import {
-  schools,
-  departments,
-  programs,
-  syllabi,
-  getDepartmentsBySchool,
-  getProgramsByDepartment,
-} from '../data/universityData';
 import { FileText, Users, Building, Briefcase, BookOpen, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+
+interface Syllabus {
+  _id: string;
+  status: string;
+  programId?: {
+    name: string;
+  };
+}
+
+interface DashboardStats {
+  totalSchools?: number;
+  totalDepartments?: number;
+  totalPrograms?: number;
+  totalSyllabi?: number;
+  pendingApproval?: number;
+  publishedSyllabi?: number;
+  pendingReview?: number;
+  facultyMembers?: number;
+  mySyllabi?: number;
+  inDraft?: number;
+  underReview?: number;
+  published?: number;
+}
 
 export default function Dashboard() {
-  const { currentUser } = useAuth();
+  const { currentUser, token } = useAuth();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [recentSyllabi, setRecentSyllabi] = useState<Syllabus[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!token || !currentUser) return;
+    
+    const fetchDashboard = async () => {
+      try {
+        const auth = { Authorization: `Bearer ${token}` };
+        const [resStats, resSyllabi] = await Promise.all([
+          fetch('/api/dashboard/stats', { headers: auth }),
+          fetch('/api/syllabi', { headers: auth })
+        ]);
+        
+        if (resStats.ok) {
+          const dataStats = await resStats.json();
+          setStats(dataStats);
+        }
+        
+        if (resSyllabi.ok) {
+          const dataSyllabi = await resSyllabi.json();
+          let filteredSyllabi = [];
+          if (currentUser.role === 'HOD') {
+            filteredSyllabi = dataSyllabi.filter((s: Syllabus) => s.status === 'Pending HOD Review');
+          } else if (currentUser.role === 'Dean') {
+            filteredSyllabi = dataSyllabi.filter((s: Syllabus) => s.status === 'Pending Dean Approval');
+          } else if (currentUser.role === 'Faculty') {
+            filteredSyllabi = dataSyllabi;
+          }
+          setRecentSyllabi(filteredSyllabi);
+        }
+      } catch(err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchDashboard();
+  }, [token, currentUser]);
 
   if (!currentUser) return null;
-
-  const pendingApprovals = syllabi.filter(s => {
-    if (currentUser.role === 'HOD') {
-      return s.status === 'Pending HOD Review';
-    }
-    if (currentUser.role === 'Dean') {
-      return s.status === 'Pending Dean Approval';
-    }
-    return false;
-  });
-
-  const userSyllabi = syllabi.filter(s => s.facultyId === currentUser.id);
+  if (loading) return <div className="p-8">Loading dashboard...</div>;
+  if (!stats) return <div className="p-8">Failed to load dashboard</div>;
 
   return (
     <div className="p-8">
@@ -47,87 +94,83 @@ export default function Dashboard() {
               <StatCard
                 icon={<Building className="w-6 h-6" />}
                 label="Total Schools"
-                value={schools.length}
+                value={stats.totalSchools || 0}
                 color="indigo"
               />
               <StatCard
                 icon={<Briefcase className="w-6 h-6" />}
                 label="Departments"
-                value={departments.length}
+                value={stats.totalDepartments || 0}
                 color="blue"
               />
               <StatCard
                 icon={<BookOpen className="w-6 h-6" />}
                 label="Programs"
-                value={programs.length}
+                value={stats.totalPrograms || 0}
                 color="green"
               />
               <StatCard
                 icon={<FileText className="w-6 h-6" />}
                 label="Total Syllabi"
-                value={syllabi.length}
+                value={stats.totalSyllabi || 0}
                 color="purple"
               />
             </>
           )}
 
-          {currentUser.role === 'Dean' && currentUser.schoolId && (
+          {currentUser.role === 'Dean' && (
             <>
               <StatCard
                 icon={<Briefcase className="w-6 h-6" />}
                 label="Departments"
-                value={getDepartmentsBySchool(currentUser.schoolId).length}
+                value={stats.totalDepartments || 0}
                 color="blue"
               />
               <StatCard
                 icon={<BookOpen className="w-6 h-6" />}
                 label="Total Programs"
-                value={
-                  getDepartmentsBySchool(currentUser.schoolId)
-                    .map(d => getProgramsByDepartment(d.id).length)
-                    .reduce((a, b) => a + b, 0)
-                }
+                value={stats.totalPrograms || 0}
                 color="green"
               />
               <StatCard
                 icon={<AlertCircle className="w-6 h-6" />}
                 label="Pending Approval"
-                value={pendingApprovals.length}
+                value={stats.pendingApproval || 0}
                 color="amber"
               />
               <StatCard
                 icon={<CheckCircle className="w-6 h-6" />}
                 label="Published Syllabi"
-                value={syllabi.filter(s => s.status === 'Published').length}
+                value={stats.publishedSyllabi || 0}
                 color="emerald"
               />
             </>
           )}
 
-          {currentUser.role === 'HOD' && currentUser.departmentId && (
+          {currentUser.role === 'HOD' && (
             <>
               <StatCard
                 icon={<BookOpen className="w-6 h-6" />}
                 label="Programs"
-                value={getProgramsByDepartment(currentUser.departmentId).length}
+                value={stats.totalPrograms || 0}
                 color="green"
               />
               <StatCard
                 icon={<Users className="w-6 h-6" />}
                 label="Faculty Members"
-                value={5}
+                value={stats.facultyMembers || 0}
                 color="blue"
               />
               <StatCard
                 icon={<AlertCircle className="w-6 h-6" />}
                 label="Pending Review"
-                value={pendingApprovals.length}
+                value={stats.pendingReview || 0}
                 color="amber"
               />
               <StatCard
                 icon={<FileText className="w-6 h-6" />}
                 label="Total Syllabi"
-                value={syllabi.length}
+                value={stats.totalSyllabi || 0}
                 color="purple"
               />
             </>
@@ -138,25 +181,25 @@ export default function Dashboard() {
               <StatCard
                 icon={<FileText className="w-6 h-6" />}
                 label="My Syllabi"
-                value={userSyllabi.length}
+                value={stats.mySyllabi || 0}
                 color="indigo"
               />
               <StatCard
                 icon={<Clock className="w-6 h-6" />}
                 label="In Draft"
-                value={userSyllabi.filter(s => s.status === 'Draft').length}
+                value={stats.inDraft || 0}
                 color="amber"
               />
               <StatCard
                 icon={<AlertCircle className="w-6 h-6" />}
                 label="Under Review"
-                value={userSyllabi.filter(s => s.status.includes('Pending')).length}
+                value={stats.underReview || 0}
                 color="blue"
               />
               <StatCard
                 icon={<CheckCircle className="w-6 h-6" />}
                 label="Published"
-                value={userSyllabi.filter(s => s.status === 'Published').length}
+                value={stats.published || 0}
                 color="emerald"
               />
             </>
@@ -165,7 +208,7 @@ export default function Dashboard() {
 
         {/* Quick Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Pending Items */}
+          {/* Pending Items for HOD / Dean */}
           {(currentUser.role === 'HOD' || currentUser.role === 'Dean') && (
             <div className="bg-white rounded-lg border border-slate-200 p-6">
               <div className="flex items-center justify-between mb-4">
@@ -179,23 +222,20 @@ export default function Dashboard() {
               </div>
 
               <div className="space-y-3">
-                {pendingApprovals.length === 0 ? (
+                {recentSyllabi.length === 0 ? (
                   <p className="text-sm text-slate-500">No pending approvals</p>
                 ) : (
-                  pendingApprovals.slice(0, 3).map(syllabus => {
-                    const program = programs.find(p => p.id === syllabus.programId);
-                    return (
-                      <div
-                        key={syllabus.id}
-                        className="p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-                      >
-                        <div className="font-medium text-sm text-slate-900">{program?.name}</div>
-                        <div className="text-xs text-slate-500 mt-1">
-                          Status: {syllabus.status}
-                        </div>
+                  recentSyllabi.slice(0, 3).map(syllabus => (
+                    <div
+                      key={syllabus._id}
+                      className="p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="font-medium text-sm text-slate-900">{syllabus.programId?.name || 'Program'}</div>
+                      <div className="text-xs text-slate-500 mt-1">
+                        Status: {syllabus.status}
                       </div>
-                    );
-                  })
+                    </div>
+                  ))
                 )}
               </div>
             </div>
@@ -215,23 +255,20 @@ export default function Dashboard() {
               </div>
 
               <div className="space-y-3">
-                {userSyllabi.length === 0 ? (
+                {recentSyllabi.length === 0 ? (
                   <p className="text-sm text-slate-500">No syllabi created yet</p>
                 ) : (
-                  userSyllabi.map(syllabus => {
-                    const program = programs.find(p => p.id === syllabus.programId);
-                    return (
-                      <div
-                        key={syllabus.id}
-                        className="p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-                      >
-                        <div className="font-medium text-sm text-slate-900">{program?.name}</div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <StatusBadge status={syllabus.status} />
-                        </div>
+                  recentSyllabi.slice(0, 3).map(syllabus => (
+                    <div
+                      key={syllabus._id}
+                      className="p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="font-medium text-sm text-slate-900">{syllabus.programId?.name || 'Program'}</div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <StatusBadge status={syllabus.status} />
                       </div>
-                    );
-                  })
+                    </div>
+                  ))
                 )}
               </div>
             </div>
@@ -243,19 +280,9 @@ export default function Dashboard() {
               <h2 className="text-lg font-semibold text-slate-900 mb-4">Recent Activity</h2>
               <div className="space-y-3">
                 <ActivityItem
-                  action="Syllabus submitted"
-                  subject="B.Tech CSE"
-                  time="2 hours ago"
-                />
-                <ActivityItem
-                  action="Dean approved"
-                  subject="M.Tech CSE"
-                  time="5 hours ago"
-                />
-                <ActivityItem
-                  action="New program added"
-                  subject="MBA"
-                  time="1 day ago"
+                  action="Syllabus system updated"
+                  subject="All programs"
+                  time="1 hour ago"
                 />
               </div>
             </div>
@@ -305,7 +332,7 @@ function StatusBadge({ status }: { status: string }) {
   };
 
   return (
-    <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColors[status as keyof typeof statusColors]}`}>
+    <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColors[status as keyof typeof statusColors] || statusColors.Draft}`}>
       {status}
     </span>
   );

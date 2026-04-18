@@ -16,21 +16,25 @@ interface CourseEntry {
 
 interface Assignment {
   _id: string;
-  subjectId?: string | {
-    _id: string;
-    name: string;
-    yearOrder?: number;
-    programId?: {
-      _id: string;
-      name: string;
-      level: string;
-      duration?: number;
-    };
-  };
-  programId?: string | {
-    name: string;
-    level: string;
-  };
+  subjectId?:
+    | string
+    | {
+        _id: string;
+        name: string;
+        yearOrder?: number;
+        programId?: {
+          _id: string;
+          name: string;
+          level: string;
+          duration?: number;
+        };
+      };
+  programId?:
+    | string
+    | {
+        name: string;
+        level: string;
+      };
 }
 
 export default function SyllabusBuilder() {
@@ -68,14 +72,19 @@ export default function SyllabusBuilder() {
     return <div className="p-8">Access denied</div>;
   }
 
-  const selectedAssignment = assignedSubjects.find(
-    (a) => {
-      const sid = typeof a.subjectId === 'object' ? a.subjectId?._id : a.subjectId;
-      return sid === selectedSubjectId;
-    }
-  );
-  const selectedSubject = typeof selectedAssignment?.subjectId === 'object' ? selectedAssignment?.subjectId : null;
-  const selectedProgram = typeof selectedSubject?.programId === 'object' ? selectedSubject?.programId : null;
+  const selectedAssignment = assignedSubjects.find((a) => {
+    const sid =
+      typeof a.subjectId === "object" ? a.subjectId?._id : a.subjectId;
+    return sid === selectedSubjectId;
+  });
+  const selectedSubject =
+    typeof selectedAssignment?.subjectId === "object"
+      ? selectedAssignment?.subjectId
+      : null;
+  const selectedProgram =
+    typeof selectedSubject?.programId === "object"
+      ? selectedSubject?.programId
+      : null;
   // Fallback duration calculation if not provided by backend
   const totalSemesters = selectedProgram?.duration
     ? Math.ceil(selectedProgram.duration / 6)
@@ -105,7 +114,11 @@ export default function SyllabusBuilder() {
     setCourses(courses.filter((c) => c.id !== id));
   };
 
-  const updateCourse = (id: string, field: keyof CourseEntry, value: string | number) => {
+  const updateCourse = (
+    id: string,
+    field: keyof CourseEntry,
+    value: string | number,
+  ) => {
     setCourses(
       courses.map((c) => (c.id === id ? { ...c, [field]: value } : c)),
     );
@@ -177,7 +190,10 @@ export default function SyllabusBuilder() {
 
         {/* Subject Selection */}
         <div className="bg-white rounded-lg border border-slate-200 p-6 mb-6">
-          <label htmlFor="subject-select" className="block text-sm font-medium text-slate-700 mb-2">
+          <label
+            htmlFor="subject-select"
+            className="block text-sm font-medium text-slate-700 mb-2"
+          >
             Select Your Assigned Subject
           </label>
           <select
@@ -189,13 +205,22 @@ export default function SyllabusBuilder() {
           >
             <option value="">Choose a subject...</option>
             {assignedSubjects.map((asn) => {
-              const sid = typeof asn.subjectId === "object" ? asn.subjectId?._id : asn.subjectId;
-              const sname = typeof asn.subjectId === "object" ? asn.subjectId?.name : "Unknown Subject";
-              const pname = typeof asn.programId === "object" ? asn.programId?.name : "";
-              const plevel = typeof asn.programId === "object" ? asn.programId?.level : "";
+              const sid =
+                typeof asn.subjectId === "object"
+                  ? asn.subjectId?._id
+                  : asn.subjectId;
+              const sname =
+                typeof asn.subjectId === "object"
+                  ? asn.subjectId?.name
+                  : "Unknown Subject";
+              const pname =
+                typeof asn.programId === "object" ? asn.programId?.name : "";
+              const plevel =
+                typeof asn.programId === "object" ? asn.programId?.level : "";
               return (
                 <option key={asn._id} value={sid}>
-                  {sname} {pname ? `— ${pname}` : ""} {plevel ? `(${plevel})` : ""}
+                  {sname} {pname ? `— ${pname}` : ""}{" "}
+                  {plevel ? `(${plevel})` : ""}
                 </option>
               );
             })}
@@ -333,7 +358,11 @@ function CourseCard({
 }: {
   course: CourseEntry;
   index: number;
-  onUpdate: (id: string, field: keyof CourseEntry, value: string | number) => void;
+  onUpdate: (
+    id: string,
+    field: keyof CourseEntry,
+    value: string | number,
+  ) => void;
   onRemove: (id: string) => void;
   onFileUpload: (courseId: string, type: "co" | "clo", file: File) => void;
 }) {
@@ -357,7 +386,10 @@ function CourseCard({
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor={`code-${course.id}`} className="block text-sm font-medium text-slate-700 mb-1">
+          <label
+            htmlFor={`code-${course.id}`}
+            className="block text-sm font-medium text-slate-700 mb-1"
+          >
             Course Code
           </label>
           <input
@@ -370,7 +402,10 @@ function CourseCard({
           />
         </div>
         <div>
-          <label htmlFor={`name-${course.id}`} className="block text-sm font-medium text-slate-700 mb-1">
+          <label
+            htmlFor={`name-${course.id}`}
+            className="block text-sm font-medium text-slate-700 mb-1"
+          >
             Course Name
           </label>
           <input
@@ -383,7 +418,10 @@ function CourseCard({
           />
         </div>
         <div>
-          <label htmlFor={`credits-${course.id}`} className="block text-sm font-medium text-slate-700 mb-1">
+          <label
+            htmlFor={`credits-${course.id}`}
+            className="block text-sm font-medium text-slate-700 mb-1"
+          >
             Credits
           </label>
           <input
@@ -399,7 +437,10 @@ function CourseCard({
           />
         </div>
         <div>
-          <label htmlFor={`type-${course.id}`} className="block text-sm font-medium text-slate-700 mb-1">
+          <label
+            htmlFor={`type-${course.id}`}
+            className="block text-sm font-medium text-slate-700 mb-1"
+          >
             Type
           </label>
           <select
@@ -417,7 +458,10 @@ function CourseCard({
       </div>
 
       <div>
-        <label htmlFor={`desc-${course.id}`} className="block text-sm font-medium text-slate-700 mb-1">
+        <label
+          htmlFor={`desc-${course.id}`}
+          className="block text-sm font-medium text-slate-700 mb-1"
+        >
           Description
         </label>
         <textarea
@@ -450,6 +494,8 @@ function CourseCard({
               const f = e.target.files?.[0];
               if (f) onFileUpload(course.id, "co", f);
             }}
+            aria-label="Upload CO document"
+            title="Upload Course Outcomes document (.pdf, .doc, .docx)"
           />
           <button
             title="Upload Course Outcomes document"
@@ -479,6 +525,8 @@ function CourseCard({
               const f = e.target.files?.[0];
               if (f) onFileUpload(course.id, "clo", f);
             }}
+            aria-label="Upload CLO document"
+            title="Upload Course Learning Outcomes document (.pdf, .doc, .docx)"
           />
           <button
             title="Upload Course Learning Outcomes document"

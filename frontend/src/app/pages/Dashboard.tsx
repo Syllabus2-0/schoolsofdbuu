@@ -1,6 +1,6 @@
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router';
-import { FileText, Users, Building, Briefcase, BookOpen, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { FileText, Users, Building, Briefcase, BookOpen, Clock, CheckCircle, AlertCircle, Plus, Layers, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 interface Syllabus {
@@ -10,6 +10,13 @@ interface Syllabus {
     name: string;
   };
 }
+
+interface Department {
+  _id: string;
+  name: string;
+}
+
+type ProgramLevel = 'UG' | 'PG' | 'Ph.D';
 
 interface DashboardStats {
   totalSchools?: number;
@@ -31,6 +38,19 @@ export default function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentSyllabi, setRecentSyllabi] = useState<Syllabus[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refresh, setRefresh] = useState(0);
+  const [departments, setDepartments] = useState<Department[]>([]);
+
+  // Add Dept state
+  const [showAddDept, setShowAddDept] = useState(false);
+  const [newDeptName, setNewDeptName] = useState('');
+
+  // Add Program state
+  const [showAddProgram, setShowAddProgram] = useState(false);
+  const [newProgramDeptId, setNewProgramDeptId] = useState('');
+  const [newProgramLevel, setNewProgramLevel] = useState<ProgramLevel>('UG');
+  const [newProgramName, setNewProgramName] = useState('');
+  const [newProgramYears, setNewProgramYears] = useState(3);
 
   useEffect(() => {
     if (!token || !currentUser) return;
@@ -38,14 +58,19 @@ export default function Dashboard() {
     const fetchDashboard = async () => {
       try {
         const auth = { Authorization: `Bearer ${token}` };
-        const [resStats, resSyllabi] = await Promise.all([
+        const [resStats, resSyllabi, resDept] = await Promise.all([
           fetch('/api/dashboard/stats', { headers: auth }),
-          fetch('/api/syllabi', { headers: auth })
+          fetch('/api/syllabi', { headers: auth }),
+          currentUser.role === 'Dean' ? fetch('/api/departments', { headers: auth }) : Promise.resolve({ ok: false } as Response)
         ]);
         
         if (resStats.ok) {
           const dataStats = await resStats.json();
           setStats(dataStats);
+        }
+
+        if (resDept && resDept.ok) {
+          setDepartments(await resDept.json());
         }
         
         if (resSyllabi.ok) {
@@ -68,7 +93,45 @@ export default function Dashboard() {
     };
     
     fetchDashboard();
-  }, [token, currentUser]);
+  }, [token, currentUser, refresh]);
+
+  const handleAddDept = async () => {
+    if (!newDeptName.trim() || !currentUser?.schoolId) return;
+    try {
+      await fetch('/api/departments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: newDeptName.trim(), schoolId: currentUser.schoolId })
+      });
+      setNewDeptName('');
+      setShowAddDept(false);
+      setRefresh(r => r + 1);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddProgram = async () => {
+    if (!newProgramDeptId || !newProgramName.trim()) return;
+    try {
+      await fetch('/api/programs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          departmentId: newProgramDeptId,
+          level: newProgramLevel,
+          name: newProgramName.trim(),
+          totalYears: newProgramYears
+        })
+      });
+      setNewProgramName('');
+      setNewProgramYears(3);
+      setShowAddProgram(false);
+      setRefresh(r => r + 1);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   if (!currentUser) return null;
   if (loading) return <div className="p-8">Loading dashboard...</div>;
@@ -78,13 +141,34 @@ export default function Dashboard() {
     <div className="p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            Welcome, {currentUser.name}
-          </h1>
-          <p className="text-slate-600">
-            {currentUser.role} Dashboard
-          </p>
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">
+              Welcome, {currentUser.name}
+            </h1>
+            <p className="text-slate-600">
+              {currentUser.role} Dashboard
+            </p>
+          </div>
+          
+          {currentUser.role === 'Dean' && (
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowAddProgram(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                <Layers className="w-5 h-5" />
+                Add Program
+              </button>
+              <button
+                onClick={() => setShowAddDept(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="w-5 h-5" />
+                Add Department
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Stats Grid */}
@@ -288,6 +372,126 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+
+        {/* Add Department Modal */}
+        {showAddDept && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg max-w-md w-full p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-slate-900">Add New Department</h2>
+                <button
+                  title="Close modal"
+                  onClick={() => setShowAddDept(false)}
+                  className="p-1 hover:bg-slate-100 rounded"
+                >
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
+
+              <div className="mb-6">
+                <label htmlFor="dept-name" className="block text-sm font-medium text-slate-700 mb-1">Department Name</label>
+                <input
+                  id="dept-name"
+                  type="text"
+                  value={newDeptName}
+                  onChange={e => setNewDeptName(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g., Electronics Engineering"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setShowAddDept(false)} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
+                  Cancel
+                </button>
+                <button onClick={handleAddDept} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                  Add Department
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Program Modal */}
+        {showAddProgram && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg max-w-md w-full p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-slate-900">Add New Program</h2>
+                <button onClick={() => setShowAddProgram(false)} className="p-1 hover:bg-slate-100 rounded">
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
+
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
+                  <select
+                    value={newProgramDeptId}
+                    onChange={e => setNewProgramDeptId(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  >
+                    <option value="">Select Department...</option>
+                    {departments.map(d => (
+                      <option key={d._id} value={d._id}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Program Level</label>
+                  <select
+                    value={newProgramLevel}
+                    onChange={e => setNewProgramLevel(e.target.value as ProgramLevel)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  >
+                    <option value="UG">Undergraduate (UG)</option>
+                    <option value="PG">Postgraduate (PG)</option>
+                    <option value="Ph.D">Doctorate (Ph.D)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Program Name</label>
+                  <input
+                    type="text"
+                    value={newProgramName}
+                    onChange={e => setNewProgramName(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="e.g., B.Tech Artificial Intelligence"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Duration (Years)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={newProgramYears}
+                    onChange={e => setNewProgramYears(parseInt(e.target.value) || 0)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="e.g., 3"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setShowAddProgram(false)} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddProgram}
+                  disabled={!newProgramDeptId || !newProgramName.trim()}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                >
+                  Add Program
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );

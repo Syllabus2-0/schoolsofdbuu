@@ -72,6 +72,11 @@ export default function TeacherAssignment() {
   const poInputRef = useRef<HTMLInputElement>(null);
   const psoInputRef = useRef<HTMLInputElement>(null);
 
+  const isDean = currentUser?.role === 'Dean';
+  const [selectedDeptId, setSelectedDeptId] = useState('');
+  const [schoolDepts, setSchoolDepts] = useState<{id: string, name: string}[]>([]);
+  const activeDeptId = isDean ? selectedDeptId : currentUser?.departmentId;
+
   useEffect(() => {
     if (!token || !currentUser || currentUser.role !== 'HOD' || !currentUser.departmentId) return;
 
@@ -471,7 +476,7 @@ export default function TeacherAssignment() {
                   </div>
 
                   <div className="flex justify-end gap-3">
-                    <button onClick={() => { setShowAssignModal(null); setFacultySearch(''); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
+                    <button onClick={() => { setShowAssignModal(null); }} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
                       Cancel
                     </button>
                     <button
@@ -485,7 +490,9 @@ export default function TeacherAssignment() {
                 </div>
               </div>
             )}
-          </div>
+          </>
+        )}
       </div>
-      );
+    </div>
+  );
 }

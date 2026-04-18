@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Plus, Briefcase, Edit, Trash2, UserCheck, X, Calendar } from 'lucide-react';
+import { Briefcase, Edit, Trash2, UserCheck, X, Calendar } from 'lucide-react';
 
 interface User {
   _id: string;
@@ -15,7 +15,6 @@ interface User {
 interface Department {
   _id: string;
   name: string;
-  hodId?: User;
 }
 
 export default function DepartmentManagement() {
@@ -28,8 +27,6 @@ export default function DepartmentManagement() {
 
   const [showAddDept, setShowAddDept] = useState(false);
   const [showHODModal, setShowHODModal] = useState<string | null>(null);
-
-  const [newDeptName, setNewDeptName] = useState('');
 
   // HOD Assignment state
   const [selectedUserId, setSelectedUserId] = useState('');
@@ -67,22 +64,6 @@ export default function DepartmentManagement() {
   if (!currentUser || currentUser.role !== 'Dean' || !currentUser.schoolId) {
     return <div className="p-8">Access denied</div>;
   }
-
-  const handleAddDept = async () => {
-    if (!newDeptName.trim()) return;
-    try {
-      await fetch('/api/departments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: newDeptName.trim(), schoolId: currentUser.schoolId })
-      });
-      setNewDeptName('');
-      setShowAddDept(false);
-      setRefresh(r => r + 1);
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   const handleAssignHOD = async (deptId: string) => {
     if (!selectedUserId) return;
@@ -123,6 +104,8 @@ export default function DepartmentManagement() {
 
   if (loading) return <div className="p-8">Loading...</div>;
 
+  const schoolDepts = departments.map(d => ({ id: d._id, name: d.name }));
+
   return (
     <div className="p-8">
       <div className="max-w-7xl mx-auto">
@@ -132,22 +115,6 @@ export default function DepartmentManagement() {
             <p className="text-slate-600">
               Manage departments and assign HODs
             </p>
-          </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => setShowAddProgram(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              <Layers className="w-5 h-5" />
-              Add Program
-            </button>
-            <button
-              onClick={() => setShowAddDept(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="w-5 h-5" />
-              Add Department
-            </button>
           </div>
         </div>
 
@@ -252,125 +219,6 @@ export default function DepartmentManagement() {
             </table>
           </div>
         </div>
-
-        {/* Add Department Modal */}
-        {showAddDept && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-slate-900">Add New Department</h2>
-                <button
-                  title="Close modal"
-                  onClick={() => setShowAddDept(false)}
-                  className="p-1 hover:bg-slate-100 rounded"
-                >
-                  <X className="w-5 h-5 text-slate-500" />
-                </button>
-              </div>
-
-              <div className="mb-6">
-                <label htmlFor="dept-name" className="block text-sm font-medium text-slate-700 mb-1">Department Name</label>
-                <input
-                  id="dept-name"
-                  type="text"
-                  value={newDeptName}
-                  onChange={e => setNewDeptName(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="e.g., Electronics Engineering"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3">
-                <button onClick={() => setShowAddDept(false)} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
-                  Cancel
-                </button>
-                <button onClick={handleAddDept} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                  Add Department
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Add Program Modal */}
-        {showAddProgram && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-slate-900">Add New Program</h2>
-                <button onClick={() => setShowAddProgram(false)} className="p-1 hover:bg-slate-100 rounded">
-                  <X className="w-5 h-5 text-slate-500" />
-                </button>
-              </div>
-
-              <div className="space-y-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
-                  <select
-                    value={newProgramDeptId}
-                    onChange={e => setNewProgramDeptId(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                  >
-                    <option value="">Select Department...</option>
-                    {schoolDepts.map(d => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Program Level</label>
-                  <select
-                    value={newProgramLevel}
-                    onChange={e => setNewProgramLevel(e.target.value as ProgramLevel)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                  >
-                    <option value="UG">Undergraduate (UG)</option>
-                    <option value="PG">Postgraduate (PG)</option>
-                    <option value="Ph.D">Doctorate (Ph.D)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Program Name</label>
-                  <input
-                    type="text"
-                    value={newProgramName}
-                    onChange={e => setNewProgramName(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="e.g., B.Tech Artificial Intelligence"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Duration (Years)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="10"
-                    value={newProgramYears}
-                    onChange={e => setNewProgramYears(parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="e.g., 3"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3">
-                <button onClick={() => setShowAddProgram(false)} className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddProgram}
-                  disabled={!newProgramDeptId || !newProgramName.trim()}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
-                >
-                  Add Program
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Assign HOD Modal */}
         {showHODModal && (

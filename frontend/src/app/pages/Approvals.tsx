@@ -1,26 +1,29 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { CheckCircle, XCircle, MessageSquare, FileText } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
+import { CheckCircle, XCircle, MessageSquare, FileText } from "lucide-react";
 
 export default function Approvals() {
   const { currentUser, token } = useAuth();
-  
+
   const [syllabi, setSyllabi] = useState<any[]>([]);
-  const [selectedSyllabusId, setSelectedSyllabusId] = useState<string | null>(null);
-  const [commentText, setCommentText] = useState('');
-  
+  const [selectedSyllabusId, setSelectedSyllabusId] = useState<string | null>(
+    null,
+  );
+  const [commentText, setCommentText] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
-    if (!token || (currentUser?.role !== 'HOD' && currentUser?.role !== 'Dean')) return;
+    if (!token || (currentUser?.role !== "HOD" && currentUser?.role !== "Dean"))
+      return;
 
     const fetchSyllabi = async () => {
       try {
         const auth = { Authorization: `Bearer ${token}` };
         // The backend `getSyllabi` automatically scopes results to either the Dept or School
         // based on the HOD/Dean role.
-        const res = await fetch('/api/syllabi', { headers: auth });
+        const res = await fetch("/api/syllabi", { headers: auth });
         if (res.ok) {
           setSyllabi(await res.json());
         }
@@ -33,28 +36,34 @@ export default function Approvals() {
     fetchSyllabi();
   }, [token, currentUser, refresh]);
 
-  if (!currentUser || (currentUser.role !== 'HOD' && currentUser.role !== 'Dean')) {
+  if (
+    !currentUser ||
+    (currentUser.role !== "HOD" && currentUser.role !== "Dean")
+  ) {
     return <div className="p-8">Access denied</div>;
   }
 
-  const pendingApprovals = syllabi.filter(s => {
-    if (currentUser.role === 'HOD') return s.status === 'Pending HOD Review';
-    if (currentUser.role === 'Dean') return s.status === 'Pending Dean Approval';
+  const pendingApprovals = syllabi.filter((s) => {
+    if (currentUser.role === "HOD") return s.status === "Pending HOD Review";
+    if (currentUser.role === "Dean")
+      return s.status === "Pending Dean Approval";
     return false;
   });
 
-  const selectedSyllabusData = syllabi.find(s => s._id === selectedSyllabusId);
+  const selectedSyllabusData = syllabi.find(
+    (s) => s._id === selectedSyllabusId,
+  );
 
   const handleApprove = async () => {
     if (!selectedSyllabusId || !token) return;
     try {
       await fetch(`/api/syllabi/${selectedSyllabusId}/approve`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` }
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
       });
       setSelectedSyllabusId(null);
-      setRefresh(r => r + 1);
-    } catch(err) {
+      setRefresh((r) => r + 1);
+    } catch (err) {
       console.error(err);
     }
   };
@@ -63,14 +72,17 @@ export default function Approvals() {
     if (!selectedSyllabusId || !commentText || !token) return;
     try {
       await fetch(`/api/syllabi/${selectedSyllabusId}/reject`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ comment: commentText })
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ comment: commentText }),
       });
-      setCommentText('');
+      setCommentText("");
       setSelectedSyllabusId(null);
-      setRefresh(r => r + 1);
-    } catch(err) {
+      setRefresh((r) => r + 1);
+    } catch (err) {
       console.error(err);
     }
   };
@@ -79,13 +91,16 @@ export default function Approvals() {
     if (!selectedSyllabusId || !commentText || !token) return;
     try {
       await fetch(`/api/syllabi/${selectedSyllabusId}/comments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ text: commentText })
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ text: commentText }),
       });
-      setCommentText('');
-      setRefresh(r => r + 1);
-    } catch(err) {
+      setCommentText("");
+      setRefresh((r) => r + 1);
+    } catch (err) {
       console.error(err);
     }
   };
@@ -96,7 +111,9 @@ export default function Approvals() {
     <div className="p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Approval Queue</h1>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">
+            Approval Queue
+          </h1>
           <p className="text-slate-600">Review and approve submitted syllabi</p>
         </div>
 
@@ -116,19 +133,22 @@ export default function Approvals() {
                     No pending approvals
                   </div>
                 ) : (
-                  pendingApprovals.map(syllabus => {
+                  pendingApprovals.map((syllabus) => {
                     return (
                       <button
                         key={syllabus._id}
                         onClick={() => setSelectedSyllabusId(syllabus._id)}
-                        className={`w-full p-4 text-left hover:bg-slate-50 transition-colors ${selectedSyllabusId === syllabus._id ? 'bg-indigo-50' : ''
-                          }`}
+                        className={`w-full p-4 text-left hover:bg-slate-50 transition-colors ${
+                          selectedSyllabusId === syllabus._id
+                            ? "bg-indigo-50"
+                            : ""
+                        }`}
                       >
                         <div className="font-medium text-sm text-slate-900 mb-1">
-                          {syllabus.programId?.name || 'Unknown Program'}
+                          {syllabus.programId?.name || "Unknown Program"}
                         </div>
                         <div className="text-xs text-slate-500">
-                          By {syllabus.facultyId?.name || 'Unknown Faculty'}
+                          By {syllabus.facultyId?.name || "Unknown Faculty"}
                         </div>
                         <div className="text-xs text-slate-500 mt-1">
                           {new Date(syllabus.updatedAt).toLocaleDateString()}
@@ -156,25 +176,29 @@ export default function Approvals() {
                     {selectedSyllabusData.programId?.name}
                   </h2>
                   <div className="flex items-center gap-4 text-sm text-slate-600">
-                    <span>Submitted by {selectedSyllabusData.facultyId?.name}</span>
+                    <span>
+                      Submitted by {selectedSyllabusData.facultyId?.name}
+                    </span>
                     <span>•</span>
                     <span>{selectedSyllabusData.programId?.level} Program</span>
                     <span>•</span>
-                    <span>{selectedSyllabusData.programId?.duration} months</span>
+                    <span>
+                      {selectedSyllabusData.programId?.duration} months
+                    </span>
                   </div>
 
                   <div className="mt-4 pt-4 border-t border-slate-200">
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="text-slate-600">HOD Signature:</span>{' '}
+                        <span className="text-slate-600">HOD Signature:</span>{" "}
                         <span className="font-medium text-slate-900">
-                          {selectedSyllabusData.hodSignature || 'Pending'}
+                          {selectedSyllabusData.hodSignature || "Pending"}
                         </span>
                       </div>
                       <div>
-                        <span className="text-slate-600">Dean Signature:</span>{' '}
+                        <span className="text-slate-600">Dean Signature:</span>{" "}
                         <span className="font-medium text-slate-900">
-                          {selectedSyllabusData.deanSignature || 'Pending'}
+                          {selectedSyllabusData.deanSignature || "Pending"}
                         </span>
                       </div>
                     </div>
@@ -183,16 +207,18 @@ export default function Approvals() {
 
                 {/* Courses */}
                 <div className="bg-white rounded-lg border border-slate-200 p-6">
-                  <h3 className="font-semibold text-slate-900 mb-4">Course Details</h3>
+                  <h3 className="font-semibold text-slate-900 mb-4">
+                    Course Details
+                  </h3>
 
-                  {selectedSyllabusData.semesters?.map((semester:any) => (
+                  {selectedSyllabusData.semesters?.map((semester: any) => (
                     <div key={semester.semesterNumber} className="mb-6">
                       <h4 className="text-sm font-medium text-slate-700 mb-3">
                         Semester {semester.semesterNumber}
                       </h4>
 
                       <div className="space-y-3">
-                        {semester.courses?.map((course:any, idx:number) => (
+                        {semester.courses?.map((course: any, idx: number) => (
                           <div
                             key={idx}
                             className="p-4 border border-slate-200 rounded-lg"
@@ -224,25 +250,32 @@ export default function Approvals() {
 
                 {/* Comments */}
                 <div className="bg-white rounded-lg border border-slate-200 p-6">
-                  <h3 className="font-semibold text-slate-900 mb-4">Comments</h3>
+                  <h3 className="font-semibold text-slate-900 mb-4">
+                    Comments
+                  </h3>
 
                   <div className="space-y-3 mb-4">
-                    {!selectedSyllabusData.comments || selectedSyllabusData.comments.length === 0 ? (
+                    {!selectedSyllabusData.comments ||
+                    selectedSyllabusData.comments.length === 0 ? (
                       <p className="text-sm text-slate-500">No comments yet</p>
                     ) : (
-                      selectedSyllabusData.comments.map((comment:any, idx:number) => (
-                        <div key={idx} className="p-3 bg-slate-50 rounded-lg">
-                          <div className="flex items-start justify-between mb-1">
-                            <span className="font-medium text-sm text-slate-900">
-                              {comment.userName}
-                            </span>
-                            <span className="text-xs text-slate-500">
-                              {new Date(comment.timestamp).toLocaleString()}
-                            </span>
+                      selectedSyllabusData.comments.map(
+                        (comment: any, idx: number) => (
+                          <div key={idx} className="p-3 bg-slate-50 rounded-lg">
+                            <div className="flex items-start justify-between mb-1">
+                              <span className="font-medium text-sm text-slate-900">
+                                {comment.userName}
+                              </span>
+                              <span className="text-xs text-slate-500">
+                                {new Date(comment.timestamp).toLocaleString()}
+                              </span>
+                            </div>
+                            <p className="text-sm text-slate-700">
+                              {comment.text}
+                            </p>
                           </div>
-                          <p className="text-sm text-slate-700">{comment.text}</p>
-                        </div>
-                      ))
+                        ),
+                      )
                     )}
                   </div>
 
@@ -266,7 +299,9 @@ export default function Approvals() {
 
                 {/* Actions */}
                 <div className="bg-white rounded-lg border border-slate-200 p-6">
-                  <h3 className="font-semibold text-slate-900 mb-4">Review Actions</h3>
+                  <h3 className="font-semibold text-slate-900 mb-4">
+                    Review Actions
+                  </h3>
 
                   <div className="flex gap-4">
                     <button
